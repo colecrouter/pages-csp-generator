@@ -1,0 +1,19 @@
+{
+  "name": "pages-csp-generator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github.com/Mexican-Man/pages-csp-generator"
+  },
+  "author": "Cole Crouter",
+  "license": "ISC",
+  "dependencies": {
+    "@cloudflare/workers-types": "^3.5.1",
+    "typescript": "^4.6.3"
+  }
+}
