@@ -1,3 +1,5 @@
+import { ClassTransformer } from "../../../node_modules/class-transformer/types/ClassTransformer";
+
 let headers: Map<string, string[]>;
 const absoluteURLRegex = /^(?:[a-z]+:)?\/\//i;
 
@@ -11,7 +13,6 @@ export const InjectCSPTags: PagesFunction<{}> = async ({ next }): Promise<Respon
             .on('style', new NonceHandler())
             .on('script', new NonceHandler())
             .on('link', new NonceHandler())
-            .on('[style]', new NonceHandler())
             .on('a', new AnchorHandler())
             .on('*', new SrcHrefHandler())
             .transform(await next());
@@ -21,11 +22,23 @@ export const InjectCSPTags: PagesFunction<{}> = async ({ next }): Promise<Respon
             .on("meta", new TagHandler())
             .transform(r);
     } catch (e) {
-        return new Response((e as Error).message, { status: 500 });
+        return new HTMLRewriter()
+            .on("meta", new Test(e as Error))
+            .transform(await next());
     }
 };
 
+class Test {
+    err: Error;
 
+    constructor(err: Error) {
+        this.err = err;
+    }
+
+    element(element: Element) {
+        element.setAttribute("content", this.err.message);
+    }
+}
 
 class TagHandler {
     element(element: Element) {
@@ -59,12 +72,6 @@ class NonceHandler {
         }
 
         const formattedNonce = `'nonce-${nonce}'`;
-
-        // Handle case for elements that have inline style
-        if (element.getAttribute("style")) {
-            addHeader("style-src", formattedNonce);
-            return;
-        }
 
         // Add nonce to list
         switch (element.tagName) {
