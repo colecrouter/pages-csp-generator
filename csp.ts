@@ -17,13 +17,9 @@ export const InjectCSPTags: PagesFunction<{}> = async ({ next }): Promise<Respon
         .transform(await next());
 
     // Add CSP headers
-    let x = new HTMLRewriter()
+    return new HTMLRewriter()
         .on("meta", new TagHandler())
         .transform(r);
-    throw ("asdasdasd");
-    return x;
-
-
 };
 
 class TagHandler {
