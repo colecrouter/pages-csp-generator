@@ -2,24 +2,29 @@ let headers: Map<string, string[]>;
 const absoluteURLRegex = /^(?:[a-z]+:)?\/\//i;
 
 export const InjectCSPTags: PagesFunction<{}> = async ({ next }): Promise<Response> => {
-    headers = new Map<string, Array<string>>();
-    headers.set('default-src', ["'self'"]);
+    try {
+        headers = new Map<string, Array<string>>();
+        headers.set('default-src', ["'self'"]);
 
-    // Add nonces and build proper CSP headers
-    const r = new HTMLRewriter()
-        .on('style', new NonceHandler())
-        .on('script', new NonceHandler())
-        .on('link', new NonceHandler())
-        .on('[style]', new NonceHandler())
-        .on('a', new AnchorHandler())
-        .on('*', new SrcHrefHandler())
-        .transform(await next());
+        // Add nonces and build proper CSP headers
+        const r = new HTMLRewriter()
+            .on('style', new NonceHandler())
+            .on('script', new NonceHandler())
+            .on('link', new NonceHandler())
+            .on('[style]', new NonceHandler())
+            .on('a', new AnchorHandler())
+            .on('*', new SrcHrefHandler())
+            .transform(await next());
 
-    // Add CSP headers
-    return new HTMLRewriter()
-        .on("meta", new TagHandler())
-        .transform(r);
+        // Add CSP headers
+        return new HTMLRewriter()
+            .on("meta", new TagHandler())
+            .transform(r);
+    } catch (e) {
+        return new Response((e as Error).message, { status: 500 });
+    }
 };
+
 
 
 class TagHandler {
