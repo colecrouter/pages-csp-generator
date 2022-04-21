@@ -4,7 +4,6 @@ let headers: Map<string, string[]>;
 const absoluteURLRegex = /^(?:[a-z]+:)?\/\//i;
 
 export const InjectCSPTags: PagesFunction<{}> = async ({ next }): Promise<Response> => {
-    throw ("asdasdasd");
     headers = new Map<string, Array<string>>();
     headers.set('default-src', ["'self'"]);
 
@@ -18,9 +17,13 @@ export const InjectCSPTags: PagesFunction<{}> = async ({ next }): Promise<Respon
         .transform(await next());
 
     // Add CSP headers
-    return new HTMLRewriter()
+    let x = new HTMLRewriter()
         .on("meta", new TagHandler())
         .transform(r);
+    throw ("asdasdasd");
+    return x;
+
+
 };
 
 class TagHandler {
