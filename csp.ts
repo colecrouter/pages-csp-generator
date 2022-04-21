@@ -4,41 +4,24 @@ let headers: Map<string, string[]>;
 const absoluteURLRegex = /^(?:[a-z]+:)?\/\//i;
 
 export const InjectCSPTags: PagesFunction<{}> = async ({ next }): Promise<Response> => {
-    try {
-        headers = new Map<string, Array<string>>();
-        headers.set('default-src', ["'self'"]);
+    throw ("asdasdasd");
+    headers = new Map<string, Array<string>>();
+    headers.set('default-src', ["'self'"]);
 
-        // Add nonces and build proper CSP headers
-        const r = new HTMLRewriter()
-            .on('style', new NonceHandler())
-            .on('script', new NonceHandler())
-            .on('link', new NonceHandler())
-            .on('a', new AnchorHandler())
-            .on('*', new SrcHrefHandler())
-            .transform(await next());
+    // Add nonces and build proper CSP headers
+    const r = new HTMLRewriter()
+        .on('style', new NonceHandler())
+        .on('script', new NonceHandler())
+        .on('link', new NonceHandler())
+        .on('a', new AnchorHandler())
+        .on('*', new SrcHrefHandler())
+        .transform(await next());
 
-        // Add CSP headers
-        return new HTMLRewriter()
-            .on("meta", new TagHandler())
-            .transform(r);
-    } catch (e) {
-        return new HTMLRewriter()
-            .on("meta", new Test(e as Error))
-            .transform(await next());
-    }
+    // Add CSP headers
+    return new HTMLRewriter()
+        .on("meta", new TagHandler())
+        .transform(r);
 };
-
-class Test {
-    err: Error;
-
-    constructor(err: Error) {
-        this.err = err;
-    }
-
-    element(element: Element) {
-        element.setAttribute("content", this.err.message);
-    }
-}
 
 class TagHandler {
     element(element: Element) {
