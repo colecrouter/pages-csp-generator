@@ -94,51 +94,63 @@ class SrcHrefHandler {
 
         // Add nonce to list
         let url;
+        let rel;
         switch (element.tagName) {
             case "script":
-                url = new URL(element.getAttribute("src")!).href.split('?')[0];
+                url = element.getAttribute("src")!.split('?')[0];
                 if (absoluteURLRegex.test(url)) {
                     addHeader("script-src", url);
                 }
                 break;
             case "link":
-                url = new URL(element.getAttribute("href")!).href.split('?')[0];
-                console.log(url);
+                url = element.getAttribute("href")!.split('?')[0];
+                rel = element.getAttribute("rel")!;
                 if (!absoluteURLRegex.test(url)) { return; }
-                if (element.getAttribute("rel") === "stylesheet") {
-                    addHeader("style-src", url);
-                } else if (element.getAttribute("rel") === "preload") {
-                    switch (element.getAttribute("as")) {
-                        case "script":
-                            addHeader("script-src", url);
-                            break;
-                        case "style":
-                            addHeader("style-src", url);
-                            break;
-                        case "font":
-                            addHeader("font-src", url);
-                            break;
-                        case "image":
-                            addHeader("img-src", url);
-                            break;
-                        case "audio":
-                        case "video":
-                            addHeader("media-src", url);
-                            break;
-                        case "object":
-                            addHeader("object-src", url);
-                            break;
-                        case "worker":
-                        case "document":
-                            addHeader("child-src", url);
-                            break;
-                        case "fetch":
-                            addHeader("connect-src", url);
-                            break;
-                        case "manifest":
-                            addHeader("manifest-src", url);
-                            break;
-                    }
+
+                switch (rel) {
+                    case "stylesheet":
+                        addHeader("style-src", url);
+                        break;
+                    case "icon":
+                        addHeader("img-src", url);
+                        break;
+                    case "prerender":
+                    case "prefetch":
+                        addHeader("prefetch-src", url);
+                    case "preconnect":
+                    case "preload":
+                        switch (element.getAttribute("as")) {
+                            case "script":
+                                addHeader("script-src", url);
+                                break;
+                            case "style":
+                                addHeader("style-src", url);
+                                break;
+                            case "font":
+                                addHeader("font-src", url);
+                                break;
+                            case "image":
+                                addHeader("img-src", url);
+                                break;
+                            case "audio":
+                            case "video":
+                                addHeader("media-src", url);
+                                break;
+                            case "object":
+                                addHeader("object-src", url);
+                                break;
+                            case "worker":
+                            case "document":
+                                addHeader("child-src", url);
+                                break;
+                            case "fetch":
+                                addHeader("connect-src", url);
+                                break;
+                            case "manifest":
+                                addHeader("manifest-src", url);
+                                break;
+                        }
+                        break;
                 }
         }
     }
