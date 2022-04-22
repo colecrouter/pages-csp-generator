@@ -1,5 +1,8 @@
 import { localhost } from "../csp";
-import { absoluteURLRegex, addHeader } from "../utils";
+import { addHeader } from "../utils";
+
+const absoluteURLRegex = /url\(["']?([a-z]+:\/\/.*\.[a-z]+[a-z0-9\/]*)[\?#]?.*["']?\)/i; // This will match any absolute URL
+const relativeURLRegex = /url\(["']?(?!.*\/\/)(.*)["']?\)/i; // This will match anything without a protocol scheme, including base64 data URIs
 
 const cache = new Map<string, string[]>();
 const URLRegex = /url\(['"`]?(.*)['"`]?\)/;

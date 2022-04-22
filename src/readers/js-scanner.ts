@@ -1,5 +1,10 @@
 import { localhost } from "../csp";
-import { absoluteURLRegex, addHeader } from "../utils";
+import { addHeader } from "../utils";
+
+const serviceWorkerRegex = /navigator\.serviceWorker\.register\('(.*)'\)/;
+const absoluteURLRegex = /["'`]([a-z]+:\/\/.*\.[a-z]+[a-z0-9\/]*)[\?#]?.*["'`]/;
+const relativeURLRegex = /["''](?!.*\/\/)(.*)["'']/i;
+
 
 const cache = new Map<string, string[]>();
 

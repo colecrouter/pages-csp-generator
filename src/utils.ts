@@ -63,6 +63,8 @@ export const addHeader = (headers: Map<string, string[]>, key: string, value: st
     } else if (value.startsWith("data:")) { // Base64 data URI
         headers.get(key)!.push("data:");
         return;
+    } else if (value.startsWith("blob:")) { // Blob URL
+        headers.get(key)!.push("blob:");
     } else if (absoluteURLRegex.test(value)) { // Absolute URL
         headers.get(key)!.push(value);
     } else if (value.startsWith("'") && value.endsWith("'")) { // Single quoted string
