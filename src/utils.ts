@@ -1,6 +1,8 @@
 import { CSPInlineHash } from "./csp";
 
-export const absoluteURLRegex = /^(?:[a-z]+:)?\/\//i;
+export const absoluteURLRegex = /^(?:(?!data)[a-z]+:)?\/\/$/i;
+export const base64ImageRegex = /data:(image\/(?:jpeg|png|gif));base64,(.+)/;
+
 const CSPDirectives: string[] = [
     "default-src",
     "script-src",

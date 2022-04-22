@@ -185,6 +185,15 @@ export class SrcHrefHandler {
                         }
                         break;
                 }
+                break;
+            case "img":
+                url = element.getAttribute("src")!.split('?')[0];
+                if (AbsoluteURLRegex.test(url)) {
+                    addHeader(this.headers, "img-src", url);
+                } else if (url.startsWith("data:")) {
+                    addHeader(this.headers, "img-src", "data:");
+                }
+
         }
     }
 }
@@ -200,21 +209,6 @@ export class AnchorHandler {
         const ping = element.getAttribute("ping");
         if (ping && AbsoluteURLRegex.test(ping)) { // If relative URL, skip
             addHeader(this.headers, "connect-src", ping);
-        }
-    }
-}
-
-export class ImageHandler {
-    headers: Map<string, string[]>;
-
-    constructor(headers: Map<string, string[]>) {
-        this.headers = headers;
-    }
-
-    element(element: Element) {
-        const src = element.getAttribute("src");
-        if (src && AbsoluteURLRegex.test(src)) { // If relative URL, skip
-            addHeader(this.headers, "img-src", src);
         }
     }
 }

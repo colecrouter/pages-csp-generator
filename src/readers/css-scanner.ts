@@ -1,7 +1,8 @@
 import { absoluteURLRegex, addHeader } from "../utils";
 
 const cache = new Map<string, string[]>();
-const urlRegex = /url\(['"`]?((?:[a-z]+:).*?)['"`]?\)/i;
+const base64URLRegex = /url\(['"`]?(data:(?:image\/(?:jpeg|png|gif));base64,(?:.+))['"`]?\)/;
+const URLRegex = /url\(['"`]?((?:(?!data)[a-z]+:).*?)['"`]?\)/;
 
 export const scanCSSFile = async (headers: Map<string, string[]>, url: string): Promise<void> => {
     // Remove quotes surrounding url
@@ -21,7 +22,7 @@ export const scanCSSFile = async (headers: Map<string, string[]>, url: string): 
 
     // Search file for url()
     const text = await response.text();
-    const match = urlRegex.exec(text);
+    const match = base64URLRegex.exec(text);
     const urls = match && match[1] ? match[1] : [];
     if (!urls) { return; }
 
@@ -36,9 +37,14 @@ export const scanCSSFile = async (headers: Map<string, string[]>, url: string): 
 
 export const scanCSS = async (headers: Map<string, string[]>, text: string): Promise<void> => {
     // Search file for url()
-    const urls = urlRegex.exec(text);
-    if (!urls) { return; }
-    urls.shift();
+    let urls: string[] = [];
+
+    const match1 = base64URLRegex.exec(text);
+    if (match1) { match1.shift(); urls.push("data:"); }
+
+    const match2 = URLRegex.exec(text);
+    if (match2) { match2.shift(); urls.push(...match2); }
+
 
 
     // Append to headers

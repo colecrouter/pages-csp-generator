@@ -1,4 +1,4 @@
-import { absoluteURLRegex, addHeader } from "../utils";
+import { absoluteURLRegex, addHeader, base64ImageRegex } from "../utils";
 
 const cache = new Map<string, string[]>();
 
@@ -17,8 +17,12 @@ export const scanJSFile = async (headers: Map<string, string[]>, url: string): P
 
     // Search file for urls
     const text = await response.text();
-    const urls = text.match(absoluteURLRegex);
-    if (!urls) { return; }
+    let urls = text.match(absoluteURLRegex);
+    if (!urls) { urls = []; }
+
+    // Search for base64
+    const base64 = text.match(base64ImageRegex);
+    if (base64) { urls = urls.concat(base64); }
 
     // Append to headers
     for (const value of urls) {
@@ -35,8 +39,12 @@ export const scanJSFile = async (headers: Map<string, string[]>, url: string): P
 
 export const scanJS = async (headers: Map<string, string[]>, text: string): Promise<void> => {
     // Search file for urls
-    const urls = text.match(absoluteURLRegex);
-    if (!urls) { return; }
+    let urls = text.match(absoluteURLRegex);
+    if (!urls) { urls = []; }
+
+    // Search for base64
+    const base64 = text.match(base64ImageRegex);
+    if (base64) { addHeader(headers, "img-src", "data:"); }
 
     // Append to headers
     for (const value of urls) {
@@ -53,6 +61,9 @@ const filterURL = (url: string): string | null => {
     try {
         // Remove surrounding quotes
         url = url.replace(/^[`'"]|[`'"]$/g, "");
+
+        // Check for base64
+        if (url.startsWith("data:")) { return "data:"; }
 
         // Parse as new URL so that we can extract certain parts of it.
         const parsed = new URL(url);
