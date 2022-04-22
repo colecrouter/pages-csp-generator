@@ -34,7 +34,6 @@ export const scanCSSFile = async (headers: Map<string, string[]>, url: string): 
 
     const match2 = URLRegex.exec(text);
     if (match2) { match2.shift(); urls.push(...match2); }
-    console.log(match2);
 
     // Append to headers
     for (const value of urls) {
@@ -54,7 +53,6 @@ export const scanCSS = async (headers: Map<string, string[]>, text: string): Pro
 
     // Append to headers
     for (const value of urls) {
-        console.log(value);
         // Switch url .extension
         let directive = "";
         switch (value.split(".").pop()!) {

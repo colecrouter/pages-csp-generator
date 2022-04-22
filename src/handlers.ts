@@ -139,7 +139,6 @@ export class SrcHrefHandler {
 
                 switch (rel) {
                     case "stylesheet":
-                        console.log(element.getAttribute("rel"));
                         scanCSSFile(this.headers, url);
                         addHeader(this.headers, "style-src", url);
                         break;
