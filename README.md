@@ -22,6 +22,7 @@ export const onRequestGet = [InjectCSP({ inline: "nonce", method: "meta-tags" })
 Initialization requires some basic configuration:
 
 <hr />
+
 #### `inline`: `nonce` |  `sha256` | `sha384` | `sha512`
 How to handle inline scripts/styles.
 
