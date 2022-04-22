@@ -17,12 +17,15 @@ export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
         let headers = new Map<string, Array<string>>();
         headers.set('default-src', ["'self'"]);
 
+        const n = await next(); // Get next down the chain
+
         // Skip if we're not on a page
-        const n = await next();
-        if (!n.headers.get("content-type")?.includes("text/html")) {
+        if (!n.clone().headers.get("content-type")?.includes("text/html")) {
             return n;
         }
 
+
+        // Cheeky fetch not being good workaround
         if (!localhost) {
             localhost = request.url;
         }
@@ -37,7 +40,7 @@ export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
             .on('script', new JSHandler(headers, options.inline))
             .on('a', new AnchorHandler(headers))
             .on('*', new SrcHrefHandler(headers))
-            .transform(await next());
+            .transform(n.clone());
 
         // WAIT for first pass to finish. This is required since we need to wait for all of the above handlers to finish before we can inject the CSP headers
         // Hopefully there is a better way to do this
@@ -52,7 +55,7 @@ export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
         } else {
             const newHeaders = new Headers([...r.headers.entries()]);
             newHeaders.set("Content-Security-Policy", headersToString(headers));
-            return new Response(r.body, { ...r, headers: newHeaders });
+            return new Response(r.clone().body, { ...r, headers: newHeaders });
         }
     };
 };
