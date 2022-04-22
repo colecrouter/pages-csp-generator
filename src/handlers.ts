@@ -135,10 +135,11 @@ export class SrcHrefHandler {
             case "link":
                 url = element.getAttribute("href")!.split('?')[0];
                 rel = element.getAttribute("rel")!;
-                if (!AbsoluteURLRegex.test(url)) { return; }
+                // if (!AbsoluteURLRegex.test(url)) { return; }
 
                 switch (rel) {
                     case "stylesheet":
+                        console.log(element.getAttribute("rel"));
                         scanCSSFile(this.headers, url);
                         addHeader(this.headers, "style-src", url);
                         break;

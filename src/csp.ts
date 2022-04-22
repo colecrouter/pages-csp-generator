@@ -10,12 +10,22 @@ export interface CSPOptions {
     inline: CSPInlineMethod;
 }
 
-export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
-    let headers: Map<string, string[]>;
+export let localhost: string;
 
-    return async ({ next }) => {
-        headers = new Map<string, Array<string>>();
+export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
+    return async ({ request, next }) => {
+        let headers = new Map<string, Array<string>>();
         headers.set('default-src', ["'self'"]);
+
+        // Skip if we're not on a page
+        const n = await next();
+        if (!n.headers.get("content-type")?.includes("text/html")) {
+            return n;
+        }
+
+        if (!localhost) {
+            localhost = request.url;
+        }
 
         // This pass serves three purposes:
         //  - It records all instances where CSP headers are required

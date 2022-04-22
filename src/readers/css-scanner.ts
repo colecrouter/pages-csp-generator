@@ -1,8 +1,8 @@
+import { localhost } from "../csp";
 import { absoluteURLRegex, addHeader } from "../utils";
 
 const cache = new Map<string, string[]>();
-const base64URLRegex = /url\(['"`]?(data:(?:image\/(?:jpeg|png|gif));base64,(?:.+))['"`]?\)/;
-const URLRegex = /url\(['"`]?((?:(?!data)[a-z]+:).*?)['"`]?\)/;
+const URLRegex = /url\(['"`]?(.*)['"`]?\)/;
 
 export const scanCSSFile = async (headers: Map<string, string[]>, url: string): Promise<void> => {
     // Remove quotes surrounding url
@@ -17,14 +17,24 @@ export const scanCSSFile = async (headers: Map<string, string[]>, url: string): 
     }
 
     // Fetch file
-    const response = await fetch(url);
-    if (!response.ok) { return; }
+    let response: Response;
+    try {
+        if (absoluteURLRegex.test(url)) {
+            response = await fetch(url);
+        } else {
+            response = await fetch(new URL(url.startsWith("/") ? url.substring(1) : url, localhost).toString());
+        }
+    } catch (err) {
+        return;
+    }
 
     // Search file for url()
     const text = await response.text();
-    const match = base64URLRegex.exec(text);
-    const urls = match && match[1] ? match[1] : [];
-    if (!urls) { return; }
+    let urls: string[] = [];
+
+    const match2 = URLRegex.exec(text);
+    if (match2) { match2.shift(); urls.push(...match2); }
+    console.log(match2);
 
     // Append to headers
     for (const value of urls) {
@@ -39,16 +49,36 @@ export const scanCSS = async (headers: Map<string, string[]>, text: string): Pro
     // Search file for url()
     let urls: string[] = [];
 
-    const match1 = base64URLRegex.exec(text);
-    if (match1) { match1.shift(); urls.push("data:"); }
-
     const match2 = URLRegex.exec(text);
     if (match2) { match2.shift(); urls.push(...match2); }
 
-
-
     // Append to headers
     for (const value of urls) {
+        console.log(value);
+        // Switch url .extension
+        let directive = "";
+        switch (value.split(".").pop()!) {
+            case "webp":
+            case "svg":
+            case "jpeg":
+            case "jpg":
+            case "png":
+            case "gif":
+            case "bmp":
+            case "tiff":
+                directive = "img-src";
+                break;
+            case "woff":
+            case "woff2":
+            case "eot":
+            case "ttf":
+            case "otf":
+                directive = "font-src";
+                break;
+            default:
+                directive = "style-src";
+                break;
+        }
         addHeader(headers, "img-src", value);
     }
 };

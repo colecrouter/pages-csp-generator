@@ -1,4 +1,5 @@
-import { absoluteURLRegex, addHeader, base64ImageRegex } from "../utils";
+import { localhost } from "../csp";
+import { absoluteURLRegex, addHeader } from "../utils";
 
 const cache = new Map<string, string[]>();
 
@@ -11,18 +12,24 @@ export const scanJSFile = async (headers: Map<string, string[]>, url: string): P
         return;
     }
 
-    // Fetch file
-    const response = await fetch(url);
+    // Fetch file, this will fail if its local, but we'll try anyway
+    let response: Response;
+    try {
+        if (absoluteURLRegex.test(url)) {
+            response = await fetch(url);
+        } else {
+            response = await fetch(new URL(url.startsWith("/") ? url.substring(1) : url, localhost).toString());
+        }
+    } catch (err) {
+        return;
+    }
+
     if (!response.ok) { return; }
 
     // Search file for urls
     const text = await response.text();
     let urls = text.match(absoluteURLRegex);
     if (!urls) { urls = []; }
-
-    // Search for base64
-    const base64 = text.match(base64ImageRegex);
-    if (base64) { urls = urls.concat(base64); }
 
     // Append to headers
     for (const value of urls) {
@@ -41,10 +48,6 @@ export const scanJS = async (headers: Map<string, string[]>, text: string): Prom
     // Search file for urls
     let urls = text.match(absoluteURLRegex);
     if (!urls) { urls = []; }
-
-    // Search for base64
-    const base64 = text.match(base64ImageRegex);
-    if (base64) { addHeader(headers, "img-src", "data:"); }
 
     // Append to headers
     for (const value of urls) {

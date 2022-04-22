@@ -1,7 +1,6 @@
 import { CSPInlineHash } from "./csp";
 
-export const absoluteURLRegex = /^(?:(?!data)[a-z]+:)?\/\/$/i;
-export const base64ImageRegex = /data:(image\/(?:jpeg|png|gif));base64,(.+)/;
+export const absoluteURLRegex = /^(?:[a-z]+:)?\/\//;
 
 const CSPDirectives: string[] = [
     "default-src",
@@ -55,13 +54,20 @@ export const SHAHash = async (str: string, method: CSPInlineHash): Promise<strin
 };
 
 export const addHeader = (headers: Map<string, string[]>, key: string, value: string) => {
-    if (value === "'none'") { headers.set(key, ["'none'"]); return; }
-    if (!headers.has(key)) {
+    if (value === "'none'") { return; } // None will get added at the end
+    if (!headers.has(key)) { // Initialize if not already
         headers.set(key, ["'self'"]);
     }
-    if (value === "'self'") { return; }
-
-    headers.get(key)!.push(value);
+    if (value === "'self'") { // Self will already exist
+        return;
+    } else if (value.startsWith("data:")) { // Base64 data URI
+        headers.get(key)!.push("data:");
+        return;
+    } else if (absoluteURLRegex.test(value)) { // Absolute URL
+        headers.get(key)!.push(value);
+    } else if (value.startsWith("'") && value.endsWith("'")) { // Single quoted string
+        headers.get(key)!.push(value);
+    }
 };
 
 export const parseCSP = (headers: Map<string, string[]>, csp: string) => {
