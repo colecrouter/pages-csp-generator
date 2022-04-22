@@ -1,6 +1,29 @@
 import { CSPInlineHash } from "./csp";
 
 export const absoluteURLRegex = /^(?:[a-z]+:)?\/\//i;
+const CSPDirectives: string[] = [
+    "default-src",
+    "script-src",
+    "style-src",
+    "img-src",
+    "connect-src",
+    "font-src",
+    "object-src",
+    "media-src",
+    "frame-src",
+    "sandbox",
+    "report-uri",
+    "child-src",
+    "form-action", // TODO
+    "frame-ancestors", // TODO
+    "plugin-types", // TODO
+    "base-uri", // TODO
+    "report-to", // TODO
+    "worker-src",
+    "manifest-src",
+    "prefetch-src",
+    "navigate-to"
+];
 
 export const randomNonce = (): string => {
     for (var a = '', b = 36; a.length < 16;) a += (Math.random() * b | 0).toString(b);
@@ -54,8 +77,12 @@ export const parseCSP = (headers: Map<string, string[]>, csp: string) => {
 export const headersToString = (headers: Map<string, string[]>): string => {
     // Build CSP header
     let csp = "";
-    for (const [key, values] of headers) {
-        csp += `${key} ${values.join(" ")}; `;
+    for (const directive of CSPDirectives) {
+        if (headers.has(directive)) {
+            csp += `${directive} ${headers.get(directive)!.join(" ")}; `;
+        } else if (directive.endsWith("-src")) {
+            csp += `${directive} 'none'; `;
+        }
     }
     return csp;
 };
