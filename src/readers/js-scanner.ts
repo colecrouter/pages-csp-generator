@@ -1,10 +1,10 @@
 import { localhost } from "../csp";
-import { addHeader } from "../utils";
+import { addHeader, CSPDirective } from "../utils";
 
-const serviceWorkerRegex = /navigator\.serviceWorker\.register\('(.*)'\)/;
-const absoluteURLRegex = /["'`]([a-z]+:\/\/.*\.[a-z]+[a-z0-9\/]*)[\?#]?.*["'`]/;
-const relativeURLRegex = /["''](?!.*\/\/)(.*)["'']/i;
-
+const serviceWorkerRegex = /navigator\.serviceWorker\.register\('(.*)'\)/gi;
+const absoluteURLRegex = /["'`]([a-z]+:\/\/.*\.[a-z]+[a-z0-9\/]*)[\?#]?.*["'`]/gi;
+const relativeURLRegex = /["''](?!.*\/\/)(.*\.[a-z]+)["'']/gi;
+const base64Regex = /['"`]?(data:(?<mime>[\w\/\-\.]+);(?<encoding>\w+),(?<data>.*))['"`]?/gi;
 
 const cache = new Map<string, string[]>();
 
@@ -12,55 +12,69 @@ export const scanJSFile = async (headers: Map<string, string[]>, url: string): P
     // Check cache
     if (cache.has(url)) {
         for (const value of cache.get(url)!) {
-            addHeader(headers, value[0], value[1]);
+            addHeader(headers, value[0] as CSPDirective, value[1]);
         }
         return;
     }
 
-    // Fetch file, this will fail if its local, but we'll try anyway
-    let response: Response;
-    try {
-        if (absoluteURLRegex.test(url)) {
-            response = await fetch(url);
-        } else {
-            response = await fetch(new URL(url.startsWith("/") ? url.substring(1) : url, localhost).toString());
-        }
-    } catch (err) {
-        return;
-    }
-
+    // Get file contents
+    const response = await fetch(url);
     if (!response.ok) { return; }
-
-    // Search file for urls
     const text = await response.text();
-    let urls = text.match(absoluteURLRegex);
-    if (!urls) { urls = []; }
 
-    // Append to headers
-    for (const value of urls) {
-        const url = filterURL(value);
-        if (!url) { continue; }
+    // Search for absolute URLs
+    for (const match in text.matchAll(absoluteURLRegex)) {
+        const filtered = filterURL(match);
+        if (filtered) {
+            addHeader(headers, "script-src", filtered);
+        }
+    }
 
-        addHeader(headers, "script-src", url);
-        addHeader(headers, "connect-src", url);
+    // Search for base64
+    for (const match of text.matchAll(base64Regex)) {
+        if (match.groups?.mime.startsWith("image/")) {
+            addHeader(headers, "img-src", "data:");
+        }
+    }
+
+    // Search for relative URLs
+    for (const match in text.matchAll(relativeURLRegex)) {
+        if (match.startsWith("data:")) { addHeader(headers, "img-src", "data:"); }
+        else if (match.startsWith("glob:")) { addHeader(headers, "script-src", "data:"); }
+        else { addHeader(headers, "script-src", "'self'"); addHeader(headers, "connect-src", url); }
+
+        // Recurse
+        await scanJSFile(headers, new URL(match, url).toString());
     }
 
     // Cache
-    cache.set(url, urls);
+    // cache.set(url, matches);
 };
 
-export const scanJS = async (headers: Map<string, string[]>, text: string): Promise<void> => {
-    // Search file for urls
-    let urls = text.match(absoluteURLRegex);
-    if (!urls) { urls = []; }
+export const scanJS = async (headers: Map<string, string[]>, url: string, text: string): Promise<void> => {
+    // Search for absolute URLs
+    for (const match of text.matchAll(absoluteURLRegex)) {
+        const filtered = filterURL(match[1]);
+        if (filtered) {
+            addHeader(headers, "script-src", filtered);
+        }
+    }
 
-    // Append to headers
-    for (const value of urls) {
-        const url = filterURL(value);
-        if (!url) { continue; }
+    // Search for base64
+    for (const match of text.matchAll(base64Regex)) {
+        if (match.groups?.mime.startsWith("image/")) {
+            addHeader(headers, "img-src", "data:");
+        }
+    }
 
-        addHeader(headers, "script-src", url);
-        addHeader(headers, "connect-src", url);
+    // Search for relative URLs
+    for (const match of text.matchAll(relativeURLRegex)) {
+        if (match[1].startsWith("data:")) { addHeader(headers, "img-src", "data:"); }
+        else if (match[1].startsWith("glob:")) { addHeader(headers, "script-src", "data:"); }
+        else { addHeader(headers, "script-src", "'self'"); addHeader(headers, "connect-src", url); }
+
+        // Recurse
+        await scanJSFile(headers, new URL(match[1], url).toString());
     }
 };
 
@@ -72,6 +86,9 @@ const filterURL = (url: string): string | null => {
 
         // Check for base64
         if (url.startsWith("data:")) { return "data:"; }
+
+        // Check for glob
+        if (url.startsWith("glob:")) { return "glob:"; }
 
         // Parse as new URL so that we can extract certain parts of it.
         const parsed = new URL(url);

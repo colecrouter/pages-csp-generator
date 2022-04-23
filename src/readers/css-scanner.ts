@@ -1,85 +1,96 @@
 import { localhost } from "../csp";
-import { addHeader } from "../utils";
+import { addHeader, CSPDirective } from "../utils";
 
-const absoluteURLRegex = /url\(["']?([a-z]+:\/\/.*\.[a-z]+[a-z0-9\/]*)[\?#]?.*["']?\)/i; // This will match any absolute URL
-const relativeURLRegex = /url\(["']?(?!.*\/\/)(.*)["']?\)/i; // This will match anything without a protocol scheme, including base64 data URIs
+const absoluteURLRegex = /url\(["']?([a-z]+:\/\/.*\.[a-z]+[a-z0-9\/]*)[\?#]?.*["']?\)/gi;
+const relativeURLRegex = /url\(["']?(?!.*\/\/)(.*\.[a-z]+)["']?\)/gi;
+const base64Regex = /url\(['"`]?(data:(?<mime>[\w\/\-\.+]+);?(?<encoding>\w+)?,(?<data>.*)(?![^'"`]))['"`]?\)/gi;
 
 const cache = new Map<string, string[]>();
-const URLRegex = /url\(['"`]?(.*)['"`]?\)/;
 
 export const scanCSSFile = async (headers: Map<string, string[]>, url: string): Promise<void> => {
-    // Remove quotes surrounding url
-    url = url.replace(/^['"]|['"]$/g, "");
-
     // Check cache
     if (cache.has(url)) {
         for (const value of cache.get(url)!) {
-            addHeader(headers, value[0], value[1]);
+            addHeader(headers, value[0] as CSPDirective, value[1]);
         }
         return;
     }
 
-    // Fetch file
-    let response: Response;
-    try {
-        if (absoluteURLRegex.test(url)) {
-            response = await fetch(url);
-        } else {
-            response = await fetch(new URL(url.startsWith("/") ? url.substring(1) : url, localhost).toString());
-        }
-    } catch (err) {
-        return;
-    }
-
-    // Search file for url()
+    // Get file contents
+    const response = await fetch(url);
+    if (!response.ok) { return; }
     const text = await response.text();
-    let urls: string[] = [];
 
-    const match2 = URLRegex.exec(text);
-    if (match2) { match2.shift(); urls.push(...match2); }
+    // Search for absolute URLs
+    for (const match of text.matchAll(absoluteURLRegex)) {
+        addHeader(headers, "img-src", match[1]);
+    }
 
-    // Append to headers
-    for (const value of urls) {
-        addHeader(headers, "style-src", value);
+    // Search for base64
+    for (const match of text.matchAll(base64Regex)) {
+        if (match.groups?.mime.startsWith("image/")) {
+            addHeader(headers, "img-src", "data:");
+        }
+    }
+
+    // Search for relative URLs
+    for (const match of text.matchAll(relativeURLRegex)) {
+        if (match[1].startsWith("data:")) { addHeader(headers, "img-src", "data:"); }
+        else if (match[1].startsWith("glob:")) { addHeader(headers, "script-src", "data:"); }
+        else { addHeader(headers, "script-src", "'self'"); addHeader(headers, "connect-src", url); }
+
+        // Recurse
+        await scanCSSFile(headers, new URL(match[1], url).toString());
     }
 
     // Cache
-    cache.set(url, urls as string[]);
+    // cache.set(url, matches);
 };
 
-export const scanCSS = async (headers: Map<string, string[]>, text: string): Promise<void> => {
-    // Search file for url()
-    let urls: string[] = [];
+export const scanCSS = async (headers: Map<string, string[]>, url: string, text: string): Promise<void> => {
+    // Search for absolute URLs
+    for (const match of text.matchAll(absoluteURLRegex)) {
+        console.log(match);
+        addHeader(headers, "img-src", match[1]);
+    }
 
-    const match2 = URLRegex.exec(text);
-    if (match2) { match2.shift(); urls.push(...match2); }
-
-    // Append to headers
-    for (const value of urls) {
-        // Switch url .extension
-        let directive = "";
-        switch (value.split(".").pop()!) {
-            case "webp":
-            case "svg":
-            case "jpeg":
-            case "jpg":
-            case "png":
-            case "gif":
-            case "bmp":
-            case "tiff":
-                directive = "img-src";
-                break;
-            case "woff":
-            case "woff2":
-            case "eot":
-            case "ttf":
-            case "otf":
-                directive = "font-src";
-                break;
-            default:
-                directive = "style-src";
-                break;
+    // Search for base64
+    for (const match of text.matchAll(base64Regex)) {
+        if (match.groups?.mime.startsWith("image/")) {
+            addHeader(headers, "img-src", "data:");
         }
-        addHeader(headers, "img-src", value);
+    }
+
+    // Search for relative URLs
+    for (const match of text.matchAll(relativeURLRegex)) {
+        if (match[1].startsWith("data:")) { addHeader(headers, "img-src", "data:"); }
+        else if (match[1].startsWith("glob:")) { addHeader(headers, "script-src", "data:"); }
+        else { addHeader(headers, "script-src", "'self'"); addHeader(headers, "connect-src", url); }
+
+        // Recurse
+        await scanCSSFile(headers, new URL(match[1], url).toString());
+    }
+
+};
+
+const getDirectiveFromExtension = (extension: string): CSPDirective => {
+    switch (extension) {
+        case "webp":
+        case "svg":
+        case "jpeg":
+        case "jpg":
+        case "png":
+        case "gif":
+        case "bmp":
+        case "tiff":
+            return "img-src";
+        case "woff":
+        case "woff2":
+        case "eot":
+        case "ttf":
+        case "otf":
+            return "font-src";
+        default:
+            return "style-src";
     }
 };

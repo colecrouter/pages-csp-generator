@@ -17,9 +17,11 @@ export class InsertMetaTagHandler {
 }
 
 export class ExistingMetaHandler {
+    request: Request;
     headers: Map<string, string[]>;
 
-    constructor(headers: Map<string, string[]>) {
+    constructor(request: Request, headers: Map<string, string[]>) {
+        this.request = request;
         this.headers = headers;
     }
 
@@ -36,12 +38,14 @@ export class ExistingMetaHandler {
 }
 
 class InlineScriptHandler {
+    request: Request;
     headers: Map<string, string[]>;
     method: CSPInlineMethod;
     tagName: string;
     buffer = "";
 
-    constructor(headers: Map<string, string[]>, method: CSPInlineMethod, tagName: string) {
+    constructor(request: Request, headers: Map<string, string[]>, method: CSPInlineMethod, tagName: string) {
+        this.request = request;
         this.headers = headers;
         this.method = method;
         this.tagName = tagName;
@@ -54,9 +58,10 @@ class InlineScriptHandler {
         if (!text.lastInTextNode) { return; }
 
         // Recurse and find URLs
-        if (this.tagName === "script") { scanJS(this.headers, this.buffer); }
-        else if (this.tagName === "style") { scanCSS(this.headers, this.buffer); }
+        if (this.tagName === "script") { scanJS(this.headers, this.request.url, this.buffer); }
+        else if (this.tagName === "style") { scanCSS(this.headers, this.request.url, this.buffer); }
 
+        if (this.tagName == "style" && this.headers.get("style-src")?.includes("'unsafe-inline'")) { return; }; // Inline style attribute somewhere in page, don't add nonce
         if (this.method === "nonce") { return; } // We want element() to handle nonce generation
 
         // Calculate hash
@@ -80,6 +85,7 @@ class InlineScriptHandler {
 
     // Add nonce to inline script elements
     element(element: Element) {
+        if (this.tagName == "style" && this.headers.get("style-src")?.includes("'unsafe-inline'")) { return; }; // Inline style attribute somewhere in page, don't add nonce
         if (this.method !== "nonce") { return; } // We want element() to handle nonce generation
 
         // If there is an src or href attribute, it's not inline
@@ -100,21 +106,23 @@ class InlineScriptHandler {
 };
 
 export class CSSHandler extends InlineScriptHandler {
-    constructor(headers: Map<string, string[]>, method: CSPInlineMethod) {
-        super(headers, method, "style");
+    constructor(request: Request, headers: Map<string, string[]>, method: CSPInlineMethod) {
+        super(request, headers, method, "style");
     }
 }
 
 export class JSHandler extends InlineScriptHandler {
-    constructor(headers: Map<string, string[]>, method: CSPInlineMethod) {
-        super(headers, method, "script");
+    constructor(request: Request, headers: Map<string, string[]>, method: CSPInlineMethod) {
+        super(request, headers, method, "script");
     }
 }
 
 export class SrcHrefHandler {
     headers: Map<string, string[]>;
+    request: Request;
 
-    constructor(headers: Map<string, string[]>) {
+    constructor(request: Request, headers: Map<string, string[]>) {
+        this.request = request;
         this.headers = headers;
     }
 
@@ -127,7 +135,8 @@ export class SrcHrefHandler {
         switch (element.tagName) {
             case "script":
                 url = element.getAttribute("src")!.split('?')[0];
-                scanJSFile(this.headers, url);
+                const newUrl = new URL(url, this.request.url).toString();
+                scanJSFile(this.headers, newUrl.toString());
                 if (AbsoluteURLRegex.test(url)) {
                     addHeader(this.headers, "script-src", url);
                 }
@@ -142,6 +151,7 @@ export class SrcHrefHandler {
                         scanCSSFile(this.headers, url);
                         addHeader(this.headers, "style-src", url);
                         break;
+                    case "apple-touch-icon":
                     case "icon":
                         addHeader(this.headers, "img-src", url);
                         break;
@@ -209,6 +219,20 @@ export class AnchorHandler {
         const ping = element.getAttribute("ping");
         if (ping && AbsoluteURLRegex.test(ping)) { // If relative URL, skip
             addHeader(this.headers, "connect-src", ping);
+        }
+    }
+}
+
+export class InlineStyleFinder {
+    headers: Map<string, string[]>;
+
+    constructor(headers: Map<string, string[]>) {
+        this.headers = headers;
+    }
+
+    element(element: Element) {
+        if (element.hasAttribute("style")) { // Check for any inline style attributes, as we can't handle those via CSP
+            addHeader(this.headers, "style-src", "'unsafe-inline'"); // This will stop nonce/hash generation
         }
     }
 }

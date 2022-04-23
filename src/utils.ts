@@ -25,6 +25,28 @@ const CSPDirectives: string[] = [
     "prefetch-src",
     "navigate-to"
 ];
+export type CSPDirective =
+    "default-src" |
+    "script-src" |
+    "style-src" |
+    "img-src" |
+    "connect-src" |
+    "font-src" |
+    "object-src" |
+    "media-src" |
+    "frame-src" |
+    "sandbox" |
+    "report-uri" |
+    "child-src" |
+    "form-action" |
+    "frame-ancestors" |
+    "plugin-types" |
+    "base-uri" |
+    "report-to" |
+    "worker-src" |
+    "manifest-src" |
+    "prefetch-src" |
+    "navigate-to";
 
 export const randomNonce = (): string => {
     for (var a = '', b = 36; a.length < 16;) a += (Math.random() * b | 0).toString(b);
@@ -53,23 +75,12 @@ export const SHAHash = async (str: string, method: CSPInlineHash): Promise<strin
     return btoa(String.fromCharCode(...new Uint8Array(hash)));;
 };
 
-export const addHeader = (headers: Map<string, string[]>, key: string, value: string) => {
+export const addHeader = (headers: Map<string, string[]>, key: CSPDirective, value: string) => {
     if (value === "'none'") { return; } // None will get added at the end
-    if (!headers.has(key)) { // Initialize if not already
-        headers.set(key, ["'self'"]);
-    }
-    if (value === "'self'") { // Self will already exist
-        return;
-    } else if (value.startsWith("data:")) { // Base64 data URI
-        headers.get(key)!.push("data:");
-        return;
-    } else if (value.startsWith("blob:")) { // Blob URL
-        headers.get(key)!.push("blob:");
-    } else if (absoluteURLRegex.test(value)) { // Absolute URL
-        headers.get(key)!.push(value);
-    } else if (value.startsWith("'") && value.endsWith("'")) { // Single quoted string
-        headers.get(key)!.push(value);
-    }
+    if (!headers.has(key)) { headers.set(key, ["'self'"]); }// Initialize if not already
+    if (headers.get(key)!.includes(value)) { return; } // Don't add if already there
+    if (value === "'unsafe-inline") { return; } // If unsafe-inline, remove all nonces
+    headers.get(key)!.push(value);
 };
 
 export const parseCSP = (headers: Map<string, string[]>, csp: string) => {
@@ -78,7 +89,7 @@ export const parseCSP = (headers: Map<string, string[]>, csp: string) => {
         const [key, ...values] = cspItem.trim().split(" ");
         if (key && values) {
             for (const value of values) {
-                addHeader(headers, key, value);
+                addHeader(headers, key as CSPDirective, value);
             }
         }
     }
