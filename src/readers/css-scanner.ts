@@ -1,7 +1,7 @@
 import { localhost } from "../csp";
 import { addHeader, CSPDirective } from "../utils";
 
-const absoluteURLRegex = /url\(["']?([a-z]+:\/\/.*\.[a-z]+[a-z0-9\/]*)[\?#]?.*["']?\)/gi;
+const absoluteURLRegex = /url\(["']?([a-z]+:\/\/[^)]*[a-z]+[a-z0-9\/.]*)[\?#]?["']?\)/gi;
 const relativeURLRegex = /url\(["']?(?!.*\/\/)(.*\.[a-z]+)["']?\)/gi;
 const base64Regex = /url\(['"`]?(data:(?<mime>[\w\/\-\.+]+);?(?<encoding>\w+)?,(?<data>.*)(?![^'"`]))['"`]?\)/gi;
 
@@ -50,7 +50,6 @@ export const scanCSSFile = async (headers: Map<string, string[]>, url: string): 
 export const scanCSS = async (headers: Map<string, string[]>, url: string, text: string): Promise<void> => {
     // Search for absolute URLs
     for (const match of text.matchAll(absoluteURLRegex)) {
-        console.log(match);
         addHeader(headers, "img-src", match[1]);
     }
 
