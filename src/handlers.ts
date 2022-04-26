@@ -84,13 +84,39 @@ class InlineScriptHandler {
     }
 
     // Add nonce to inline script elements
-    element(element: Element) {
+    async element(element: Element) {
         if (this.tagName == "style" && this.headers.get("style-src")?.includes("'unsafe-inline'")) { return; }; // Inline style attribute somewhere in page, don't add nonce
-        if (this.method !== "nonce") { return; } // We want element() to handle nonce generation
 
         // If there is an src or href attribute, it's not inline
         // We'll let SrcHrefHandler handle it
-        if (element.getAttribute("src") || element.getAttribute("href")) { return; }
+        // BUT, if the 'script-src' directive has 'strict-dynamic', then do it anyway, cuz we need that to run inline scripts
+        // If the metod isn't 'nonce', we'll have to hash it here instead of in text() (if there's 'strict-dynamic')
+        if ((element.getAttribute("src") || element.getAttribute("href")) && !(this.tagName == "script" && this.headers.get("script-src")?.includes("'strict-dynamic'"))) { return; }
+
+        // We want element() to handle nonce generation, UNLESS we have a 'strict-dynamic' directive, in which case, we'll do it here
+        if (this.tagName == "script" && element.getAttribute("src") && this.method !== "nonce") {
+            // Get contents of src
+            const url = new URL(element.getAttribute("src")!, this.request.url).toString();
+            const text = await fetch(url);
+            console.log(url);
+
+            // Calculate hash
+            let ident: string;
+            let formattedIdent: string;
+            switch (this.method) {
+                case "sha256":
+                case "sha384":
+                case "sha512":
+                    ident = await SHAHash(await text.text(), this.method); // Wait for the handler to have parsed the text
+                    console.log(element.getAttribute("src"), ident);
+                    formattedIdent = `'${this.method}-${ident}'`; // Format the hash for CSP
+                    break;
+            }
+
+            // Add CSP header
+            addHeader(this.headers, "script-src", formattedIdent);
+            return;
+        }
 
         // Create an identifier corresponding to our selected method: nonce or hash
         let ident: string;
@@ -135,14 +161,15 @@ export class SrcHrefHandler {
         switch (element.tagName) {
             case "script":
                 url = element.getAttribute("src")!.split('?')[0];
-                const newUrl = new URL(url, this.request.url).toString();
-                scanJSFile(this.headers, newUrl.toString());
+                url = new URL(url, this.request.url).toString();
+                scanJSFile(this.headers, url);
                 if (AbsoluteURLRegex.test(url)) {
                     addHeader(this.headers, "script-src", url);
                 }
                 break;
             case "link":
                 url = element.getAttribute("href")!.split('?')[0];
+                url = new URL(url, this.request.url).toString();
                 rel = element.getAttribute("rel")!;
                 // if (!AbsoluteURLRegex.test(url)) { return; }
 
