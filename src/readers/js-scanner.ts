@@ -6,16 +6,14 @@ const absoluteURLRegex = /["'`]([a-z]+:\/\/.*\.[a-z]+[a-z0-9\/]*)[\?#]?.*["'`]/g
 const relativeURLRegex = /["''](?!.*\/\/)(.*\.[a-z]+)["'']/gi;
 const base64Regex = /['"`]?(data:(?<mime>[\w\/\-\.]+);(?<encoding>\w+),(?<data>.*))['"`]?/gi;
 
-const cache = new Map<string, string[]>();
-
 export const scanJSFile = async (headers: Map<string, string[]>, url: string): Promise<void> => {
     // Check cache
-    if (cache.has(url)) {
-        for (const value of cache.get(url)!) {
-            addHeader(headers, value[0] as CSPDirective, value[1]);
-        }
-        return;
-    }
+    // if (cache.has(url)) {
+    //     for (const value of cache.get(url)!) {
+    //         addHeader(headers, value[0] as CSPDirective, value[1]);
+    //     }
+    //     return;
+    // }
 
     // Get file contents
     const response = await fetch(url);
@@ -23,8 +21,8 @@ export const scanJSFile = async (headers: Map<string, string[]>, url: string): P
     const text = await response.text();
 
     // Search for absolute URLs
-    for (const match in text.matchAll(absoluteURLRegex)) {
-        const filtered = filterURL(match);
+    for (const match of text.matchAll(absoluteURLRegex)) {
+        const filtered = filterURL(match[1]);
         if (filtered) {
             addHeader(headers, "script-src", filtered);
         }
@@ -38,17 +36,14 @@ export const scanJSFile = async (headers: Map<string, string[]>, url: string): P
     }
 
     // Search for relative URLs
-    for (const match in text.matchAll(relativeURLRegex)) {
-        if (match.startsWith("data:")) { addHeader(headers, "img-src", "data:"); }
-        else if (match.startsWith("glob:")) { addHeader(headers, "script-src", "data:"); }
+    for (const match of text.matchAll(relativeURLRegex)) {
+        if (match[1].startsWith("data:")) { addHeader(headers, "img-src", "data:"); }
+        else if (match[1].startsWith("glob:")) { addHeader(headers, "script-src", "data:"); }
         else { addHeader(headers, "script-src", "'self'"); addHeader(headers, "connect-src", url); }
 
         // Recurse
-        await scanJSFile(headers, new URL(match, url).toString());
+        await scanJSFile(headers, new URL(match[1], url).toString());
     }
-
-    // Cache
-    // cache.set(url, matches);
 };
 
 export const scanJS = async (headers: Map<string, string[]>, url: string, text: string): Promise<void> => {

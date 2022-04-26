@@ -66,9 +66,6 @@ export const scanCSS = async (headers: Map<string, string[]>, url: string, text:
         if (match[1].startsWith("data:")) { addHeader(headers, "img-src", "data:"); }
         else if (match[1].startsWith("glob:")) { addHeader(headers, "script-src", "data:"); }
         else { addHeader(headers, "script-src", "'self'"); addHeader(headers, "connect-src", url); }
-
-        // Recurse
-        await scanCSSFile(headers, new URL(match[1], url).toString());
     }
 
 };
