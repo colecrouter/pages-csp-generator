@@ -1,6 +1,7 @@
-import { CSPInlineHash } from "./csp";
+import { CSPInlineHash, localhost } from "./csp";
 
-export const absoluteURLRegex = /^(?:[a-z]+:)?\/\//;
+export const absoluteURLRegex = /["'`]?((?:http|https):\/\/[a-z0-9]+(?:\.[a-z]*)?(?::[0-9]+)?[\/a-z0-9.\-@]*)[\?#]?.*?["'`]?/gi;
+export const base64Regex = /['"`]?(data:(?<mime>[\w\/\-\.]+);(?<encoding>\w+),(?<data>.*))['"`]?/gi;
 
 const CSPDirectives: string[] = [
     "default-src",
@@ -25,6 +26,7 @@ const CSPDirectives: string[] = [
     "prefetch-src",
     "navigate-to"
 ];
+
 export type CSPDirective =
     "default-src" |
     "script-src" |
@@ -106,4 +108,54 @@ export const headersToString = (headers: Map<string, string[]>): string => {
         }
     }
     return csp;
+};
+
+export const urlToHeader = (headers: Map<string, string[]>, url: string, directive?: CSPDirective) => {
+    // Remove surrounding quotes
+    url = url.replace(/^[`'"]|[`'"]$/g, "");
+
+    // Get directive
+    directive = directive || getDirectiveFromExtension(url.split(".").pop() || "");
+
+    // Parse as new URL so that we can extract certain parts of it.
+    const parsed = new URL(url, localhost);
+
+    // If pathname has ${ in it, we'll assume it's a template and return the hostname.
+    if (parsed.pathname.includes("$%7B")) { return addHeader(headers, directive, parsed.hostname); }
+
+    // Absolute URL
+    const absoluteURL = url.match(absoluteURLRegex)?.[0];
+    if (absoluteURL && parsed.origin !== localhost) { return addHeader(headers, directive, absoluteURL); }
+
+    // Relative URL
+    return addHeader(headers, directive, "'self'");
+};
+
+const getDirectiveFromExtension = (extension: string): CSPDirective => {
+    switch (extension) {
+        case "svg":
+        case "jpeg":
+        case "jpg":
+        case "png":
+        case "gif":
+        case "bmp":
+        case "tiff":
+        case "webp":
+        case "ico":
+            return "img-src";
+        case "woff":
+        case "woff2":
+        case "eot":
+        case "ttf":
+        case "otf":
+            return "font-src";
+        case "js":
+            return "script-src";
+        case "css":
+            return "style-src";
+        case "json":
+            return "connect-src";
+        default:
+            return "style-src";
+    }
 };

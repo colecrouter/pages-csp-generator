@@ -1,7 +1,7 @@
 import { CSPInlineMethod } from "./csp";
 import { scanCSS, scanCSSFile } from "./readers/css-scanner";
 import { scanJS, scanJSFile } from "./readers/js-scanner";
-import { absoluteURLRegex as AbsoluteURLRegex, addHeader, headersToString, parseCSP, randomNonce, SHAHash } from "./utils";
+import { absoluteURLRegex as AbsoluteURLRegex, addHeader, headersToString, parseCSP, randomNonce, SHAHash, urlToHeader } from "./utils";
 
 export class InsertMetaTagHandler {
     headers: Map<string, string[]>;
@@ -58,8 +58,8 @@ class InlineScriptHandler {
         if (!text.lastInTextNode) { return; }
 
         // Recurse and find URLs
-        if (this.tagName === "script") { scanJS(this.headers, this.request.url, this.buffer); }
-        else if (this.tagName === "style") { scanCSS(this.headers, this.request.url, this.buffer); }
+        if (this.tagName === "script") { await scanJS(this.headers, this.request.url, this.buffer); }
+        else if (this.tagName === "style") { await scanCSS(this.headers, this.request.url, this.buffer); }
 
         if (this.tagName == "style" && this.headers.get("style-src")?.includes("'unsafe-inline'")) { return; }; // Inline style attribute somewhere in page, don't add nonce
         if (this.method === "nonce") { return; } // We want element() to handle nonce generation
@@ -98,7 +98,6 @@ class InlineScriptHandler {
             // Get contents of src
             const url = new URL(element.getAttribute("src")!, this.request.url).toString();
             const text = await fetch(url);
-            console.log(url);
 
             // Calculate hash
             let ident: string;
@@ -108,13 +107,12 @@ class InlineScriptHandler {
                 case "sha384":
                 case "sha512":
                     ident = await SHAHash(await text.text(), this.method); // Wait for the handler to have parsed the text
-                    console.log(element.getAttribute("src"), ident);
                     formattedIdent = `'${this.method}-${ident}'`; // Format the hash for CSP
                     break;
             }
 
             // Add CSP header
-            addHeader(this.headers, "script-src", formattedIdent);
+            urlToHeader(this.headers, url.toString());
             return;
         }
 
@@ -152,7 +150,7 @@ export class SrcHrefHandler {
         this.headers = headers;
     }
 
-    element(element: Element) {
+    async element(element: Element) {
         if (!element.getAttribute("src") && !element.getAttribute("href")) { return; }
 
         // URL to headers
@@ -162,9 +160,10 @@ export class SrcHrefHandler {
             case "script":
                 url = element.getAttribute("src")!.split('?')[0];
                 url = new URL(url, this.request.url).toString();
-                scanJSFile(this.headers, url);
+                await scanJSFile(this.headers, url);
                 if (AbsoluteURLRegex.test(url)) {
-                    addHeader(this.headers, "script-src", url);
+                    urlToHeader(this.headers, url);
+                    // addHeader(this.headers, "script-src", url);
                 }
                 break;
             case "link":
@@ -175,49 +174,51 @@ export class SrcHrefHandler {
 
                 switch (rel) {
                     case "stylesheet":
-                        scanCSSFile(this.headers, url);
-                        addHeader(this.headers, "style-src", url);
+                        await scanCSSFile(this.headers, url);
+                        urlToHeader(this.headers, url, 'style-src');
                         break;
                     case "apple-touch-icon":
                     case "icon":
-                        addHeader(this.headers, "img-src", url);
+                        urlToHeader(this.headers, url, 'img-src');
                         break;
                     case "prerender":
                     case "prefetch":
-                        addHeader(this.headers, "prefetch-src", url);
+                        urlToHeader(this.headers, url, 'prefetch-src');
                     case "preconnect":
                     case "preload":
                         switch (element.getAttribute("as")) {
                             case "script":
-                                scanJSFile(this.headers, url);
-                                addHeader(this.headers, "script-src", url);
+                                await scanJSFile(this.headers, url);
+                                urlToHeader(this.headers, url, 'script-src');
                                 break;
                             case "style":
-                                scanCSSFile(this.headers, url);
-                                addHeader(this.headers, "style-src", url);
+                                await scanCSSFile(this.headers, url);
+                                urlToHeader(this.headers, url, 'style-src');
                                 break;
                             case "font":
-                                addHeader(this.headers, "font-src", url);
+                                urlToHeader(this.headers, url, 'font-src');
                                 break;
                             case "image":
-                                addHeader(this.headers, "img-src", url);
+                                urlToHeader(this.headers, url, 'img-src');
                                 break;
                             case "audio":
                             case "video":
-                                addHeader(this.headers, "media-src", url);
+                                urlToHeader(this.headers, url, 'media-src');
                                 break;
                             case "object":
-                                addHeader(this.headers, "object-src", url);
+                                urlToHeader(this.headers, url, 'object-src');
                                 break;
                             case "worker":
+                                urlToHeader(this.headers, url, 'worker-src');
+                                break;
                             case "document":
-                                addHeader(this.headers, "child-src", url);
+                                urlToHeader(this.headers, url, 'child-src');
                                 break;
                             case "fetch":
-                                addHeader(this.headers, "connect-src", url);
+                                urlToHeader(this.headers, url, 'connect-src');
                                 break;
                             case "manifest":
-                                addHeader(this.headers, "manifest-src", url);
+                                urlToHeader(this.headers, url, 'manifest-src');
                                 break;
                         }
                         break;

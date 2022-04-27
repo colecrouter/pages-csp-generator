@@ -25,9 +25,7 @@ export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
         }
 
         // Cheeky fetch not being good workaround
-        if (!localhost) {
-            localhost = request.url;
-        }
+        if (!localhost) { localhost = new URL(request.url).origin; }
 
         // This pass serves four purposes:
         //  - It records all instances where CSP headers are required
@@ -42,7 +40,6 @@ export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
             .on('a', new AnchorHandler(headers))
             .on('*', new SrcHrefHandler(request, headers))
             .transform(n.clone());
-
         // WAIT for first pass to finish. This is required since we need to wait for all of the above handlers to finish before we can inject the CSP headers
         // Hopefully there is a better way to do this
         await r.clone().text();
