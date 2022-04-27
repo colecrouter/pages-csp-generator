@@ -43,7 +43,6 @@ export const scanJS = async (headers: Map<string, string[]>, url: string, text: 
 
     // Search for service worker registration
     // TODO change
-    console.log("ahhh");
     for (const match of text.matchAll(serviceWorkerRegex)) {
         urlToHeader(headers, match[1], "worker-src");
     }
