@@ -1,14 +1,13 @@
 import { localhost } from "../csp";
-import { addHeader, CSPDirective, urlToHeader } from "../utils";
-import { scanJSFile } from "./js-scanner";
+import { addHeader, urlToHeader } from "../utils";
 
 const absoluteURLRegex = /["'`]?((?:http|https):\/\/[a-z0-9]+(?:\.[a-z]*)?(?::[0-9]+)?[\/a-z0-9.]*)[\?#]?.*?["'`]?/gi;
 const relativeURLRegex = /url\(["']?(?!.*\/\/)(.*\.[a-z]+)["']?\)/gi;
 const base64Regex = /url\(['"`]?(data:(?<mime>[\w\/\-\.+]+);?(?<encoding>\w+)?,(?<data>.*)(?![^'"`]))['"`]?\)/gi;
 
-const cache = new Map<string, string[]>();
-
 export const scanCSSFile = async (headers: Map<string, string[]>, url: string): Promise<void> => {
+    if (new URL(url).hostname !== localhost) { return; }
+
     // Get file contents
     const response = await fetch(url);
     if (!response.ok) { return; }

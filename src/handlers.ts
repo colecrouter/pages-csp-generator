@@ -4,7 +4,7 @@ import { scanJS, scanJSFile } from "./readers/js-scanner";
 import { absoluteURLRegex as AbsoluteURLRegex, addHeader, headersToString, parseCSP, randomNonce, SHAHash, urlToHeader } from "./utils";
 
 export class InsertMetaTagHandler {
-    headers: Map<string, string[]>;
+    readonly headers: Map<string, string[]>;
 
     constructor(headers: Map<string, string[]>) {
         this.headers = headers;
@@ -17,8 +17,8 @@ export class InsertMetaTagHandler {
 }
 
 export class ExistingMetaHandler {
-    request: Request;
-    headers: Map<string, string[]>;
+    readonly request: Request;
+    readonly headers: Map<string, string[]>;
 
     constructor(request: Request, headers: Map<string, string[]>) {
         this.request = request;
@@ -38,10 +38,10 @@ export class ExistingMetaHandler {
 }
 
 class InlineScriptHandler {
-    request: Request;
-    headers: Map<string, string[]>;
-    method: CSPInlineMethod;
-    tagName: string;
+    readonly request: Request;
+    readonly headers: Map<string, string[]>;
+    readonly method: CSPInlineMethod;
+    readonly tagName: string;
     buffer = "";
 
     constructor(request: Request, headers: Map<string, string[]>, method: CSPInlineMethod, tagName: string) {
@@ -142,8 +142,8 @@ export class JSHandler extends InlineScriptHandler {
 }
 
 export class SrcHrefHandler {
-    headers: Map<string, string[]>;
-    request: Request;
+    readonly headers: Map<string, string[]>;
+    readonly request: Request;
 
     constructor(request: Request, headers: Map<string, string[]>) {
         this.request = request;
@@ -154,8 +154,8 @@ export class SrcHrefHandler {
         if (!element.getAttribute("src") && !element.getAttribute("href")) { return; }
 
         // URL to headers
-        let url;
-        let rel;
+        let url = "";
+        let rel = "";
         switch (element.tagName) {
             case "script":
                 url = element.getAttribute("src")!.split('?')[0];
@@ -163,7 +163,6 @@ export class SrcHrefHandler {
                 await scanJSFile(this.headers, url);
                 if (AbsoluteURLRegex.test(url)) {
                     urlToHeader(this.headers, url);
-                    // addHeader(this.headers, "script-src", url);
                 }
                 break;
             case "link":
@@ -180,6 +179,10 @@ export class SrcHrefHandler {
                     case "apple-touch-icon":
                     case "icon":
                         urlToHeader(this.headers, url, 'img-src');
+                        break;
+                    case "manifest":
+                        await scanJSFile(this.headers, url);
+                        urlToHeader(this.headers, url, 'manifest-src');
                         break;
                     case "prerender":
                     case "prefetch":
@@ -218,6 +221,7 @@ export class SrcHrefHandler {
                                 urlToHeader(this.headers, url, 'connect-src');
                                 break;
                             case "manifest":
+                                await scanJSFile(this.headers, url);
                                 urlToHeader(this.headers, url, 'manifest-src');
                                 break;
                         }
@@ -231,13 +235,12 @@ export class SrcHrefHandler {
                 } else if (url.startsWith("data:")) {
                     addHeader(this.headers, "img-src", "data:");
                 }
-
         }
     }
 }
 
 export class AnchorHandler {
-    headers: Map<string, string[]>;
+    readonly headers: Map<string, string[]>;
 
     constructor(headers: Map<string, string[]>) {
         this.headers = headers;
@@ -246,13 +249,13 @@ export class AnchorHandler {
     element(element: Element) {
         const ping = element.getAttribute("ping");
         if (ping && AbsoluteURLRegex.test(ping)) { // If relative URL, skip
-            addHeader(this.headers, "connect-src", ping);
+            urlToHeader(this.headers, ping, "connect-src");
         }
     }
 }
 
 export class InlineStyleFinder {
-    headers: Map<string, string[]>;
+    readonly headers: Map<string, string[]>;
 
     constructor(headers: Map<string, string[]>) {
         this.headers = headers;
@@ -260,7 +263,7 @@ export class InlineStyleFinder {
 
     element(element: Element) {
         if (element.hasAttribute("style")) { // Check for any inline style attributes, as we can't handle those via CSP
-            addHeader(this.headers, "style-src", "'unsafe-inline'"); // This will stop nonce/hash generation
+            urlToHeader(this.headers, "'unsafe-inline'", "style-src"); // This will stop nonce/hash generation
         }
     }
 }

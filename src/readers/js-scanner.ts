@@ -1,5 +1,5 @@
 import { localhost } from "../csp";
-import { absoluteURLRegex, addHeader, CSPDirective, urlToHeader } from "../utils";
+import { absoluteURLRegex, addHeader, urlToHeader } from "../utils";
 
 const serviceWorkerRegex = /navigator\.serviceWorker\.register\([`'"](.*?)[`'"]/gi;
 const relativeURLRegex = /["'`]((?!http|https)(?!:\/\/)(?!:[0-9]+)[\/_a-z0-9.]+\.[a-z]+)[\?#]?.*?["'`]/gi;
@@ -7,10 +7,13 @@ const base64Regex = /['"`]?(data:(?<mime>[\w\/\-\.]+);(?<encoding>\w+),(?<data>.
 const blobRegex = /["'`]?(blob:.*)["'`]?/gi;
 
 export const scanJSFile = async (headers: Map<string, string[]>, url: string): Promise<void> => {
+    if (new URL(url).origin !== localhost) { return; }
+
     // Get file contents
     const response = await fetch(url);
     if (!response.ok) { return; }
     const text = await response.text();
+
     await scanJS(headers, url, text);
 };
 
@@ -38,7 +41,7 @@ export const scanJS = async (headers: Map<string, string[]>, url: string, text: 
         urlToHeader(headers, match[1]);
 
         // Recurse
-        await scanJSFile(headers, new URL(match[1], url).toString());
+        // await scanJSFile(headers, new URL(match[1], url).toString());
     }
 
     // Search for service worker registration
