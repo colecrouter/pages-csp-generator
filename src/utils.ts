@@ -84,6 +84,23 @@ export const addHeader = (options: CSPOptions, headers: Map<string, string[]>, k
     if (!headers.has(key)) { headers.set(key, ["'self'"]); }// Initialize if not already
     if (headers.get(key)!.includes(value)) { return; } // Don't add if already there
     if (value === "'unsafe-inline") { return; } // If unsafe-inline, remove all nonces
+
+    // Check for existing values that conflict
+    const values = headers.get(key);
+    for (const existing in values) { // I'm not sure why, this sets 'existing' a string of an index (number), instead of the value????
+        // Check for existing values that are less specific than the new value
+        if (value.startsWith(values[existing as any])) {
+            return;
+        }
+
+        // Check for existing values that are more specific than the new value
+        // I don't know if this will happen in this implementation yet, but maybe in the future
+        if (values[existing as any].startsWith(value)) {
+            values.splice(existing as any, 1);
+        }
+    }
+
+
     headers.get(key)!.push(value);
 };
 
@@ -113,51 +130,47 @@ export const headersToString = (options: CSPOptions, headers: Map<string, string
 };
 
 export const urlToHeader = async (options: CSPOptions, headers: Map<string, string[]>, url: URL, directive?: CSPDirective) => {
-    // Remove surrounding quotes
-    const strUrl = url.toString().replace(/^[`'"]|[`'"]$/g, "");
-
-    // Parse as new URL so that we can extract certain parts of it.
-    const parsed = new URL(strUrl, localhost);
-
     // Get directive
-    directive = directive || getDirectiveFromExtension(options, strUrl.split(".").pop() || "") || await getDirectiveFromFetch(options, parsed);
+    directive = directive || getDirectiveFromExtension(options, url) || await getDirectiveFromFetch(options, url);
     if (!directive) { return; }
 
 
     // If pathname has ${ in it, we'll assume it's a template and return the hostname.
-    if (parsed.pathname.includes("$%7B")) { return addHeader(options, headers, directive, parsed.hostname); }
+    if (url.pathname.includes("$%7B")) { return addHeader(options, headers, directive, url.hostname); }
 
     // Absolute URL
-    const absoluteURL = strUrl.match(absoluteURLRegex)?.[0];
-    if (absoluteURL && parsed.origin !== localhost) { return addHeader(options, headers, directive, absoluteURL); }
+    url.hash = "";
+    url.search = "";
+    if (url.origin !== localhost) { return addHeader(options, headers, directive, url.toString()); }
 
     // Relative URL
     return addHeader(options, headers, directive, "'self'");
 };
 
-const getDirectiveFromExtension = (options: CSPOptions, extension: string): CSPDirective | undefined => {
-    switch (extension) {
-        case "svg":
-        case "jpeg":
-        case "jpg":
-        case "png":
-        case "gif":
-        case "bmp":
-        case "tiff":
-        case "webp":
-        case "ico":
+const getDirectiveFromExtension = (options: CSPOptions, url: URL): CSPDirective | undefined => {
+    switch (url.pathname.split(".").pop()) {
+        case 'svg':
+        case 'jpeg':
+        case 'jpg':
+        case 'png':
+        case 'gif':
+        case 'bmp':
+        case 'tiff':
+        case 'webp':
+        case 'avif':
+        case 'ico':
             return "img-src";
-        case "woff":
-        case "woff2":
-        case "eot":
-        case "ttf":
-        case "otf":
+        case 'woff':
+        case 'woff2':
+        case 'eot':
+        case 'ttf':
+        case 'otf':
             return "font-src";
-        case "js":
+        case 'js':
             return "script-src";
-        case "css":
+        case 'css':
             return "style-src";
-        case "json":
+        case 'json':
             return "connect-src";
         default:
             return undefined;
@@ -165,8 +178,10 @@ const getDirectiveFromExtension = (options: CSPOptions, extension: string): CSPD
 };
 
 const getDirectiveFromFetch = async (options: CSPOptions, url: URL): Promise<CSPDirective | undefined> => {
+    const doCache = options.CacheMethod === 'all' || (url.origin === localhost && options.CacheMethod === 'localhost');
+
     // Check cache
-    if (fetchDirectiveCache.has(url.toString())) { return fetchDirectiveCache.get(url.toString()) || undefined; }
+    if (doCache && fetchDirectiveCache.has(url.toString())) { return fetchDirectiveCache.get(url.toString()) || undefined; }
 
     // Fetch rquest, determine MIME type
     const res = await fetch(url.toString());
@@ -200,8 +215,7 @@ const getDirectiveFromFetch = async (options: CSPOptions, url: URL): Promise<CSP
     }
 
     // Cache
-    console.log(`Caching ${url.toString()} as ${directive}`);
-    fetchDirectiveCache.set(url.toString(), directive);
+    if (doCache) { fetchDirectiveCache.set(url.toString(), directive); };
 
     return directive;
 };

@@ -1,22 +1,26 @@
 import { ExistingMetaHandler, AnchorHandler, SrcHrefHandler, InsertMetaTagHandler, CSSHandler, JSHandler, InlineStyleFinder } from "./handlers";
-import { headersToString } from "./utils";
+import { CSPDirective, headersToString } from "./utils";
 
-export type CSPInlineHash = "sha256" | "sha384" | "sha512";
-export type CSPInlineMethod = "nonce" | CSPInlineHash;
-export type CSPInjectionMethod = "meta-tags" | "headers";
+export type CSPInlineHash = 'sha256' | 'sha384' | 'sha512';
+export type CSPInlineMethod = 'nonce' | CSPInlineHash;
+export type CSPInjectionMethod = 'meta-tags' | 'headers';
+export type CSPCacheMethod = 'none' | 'localhost' | 'all';
 
 export interface CSPOptions {
     InjectionMethod: CSPInjectionMethod;
     InlineMethod: CSPInlineMethod;
+    CacheMethod: CSPCacheMethod;
     ScanExternal?: boolean;
     RecurseJS?: boolean;
 }
 
 export let localhost: string;
 
+const pageCache = new Map<string, Map<CSPDirective, Array<string>>>();
+
 export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
     return async ({ request, next }) => {
-        let headers = new Map<string, Array<string>>();
+        let headers = new Map<CSPDirective, Array<string>>();
         headers.set('default-src', ["'self'"]);
 
         const n = await next(); // Get next down the chain
@@ -29,22 +33,29 @@ export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
         // Cheeky fetch not being good workaround
         if (!localhost) { localhost = new URL(request.url).origin; }
 
-        // This pass serves four purposes:
-        //  - It records all instances where CSP headers are required
-        //  - It checks if 'unsafe-inline' is required for styles
-        //  - Tt adds nonces/hashes to inline scripts (styles too, if no 'unsafe-inline' is required)
-        //  - Parse any CSP headers that are present in any existing meta tags
-        const r = new HTMLRewriter()
-            .on("*", new InlineStyleFinder(options, headers))
-            .on("meta", new ExistingMetaHandler(options, request, headers))
-            .on('style', new CSSHandler(options, request, headers))
-            .on('script', new JSHandler(options, request, headers))
-            .on('a', new AnchorHandler(options, request, headers))
-            .on('*', new SrcHrefHandler(options, request, headers))
-            .transform(n.clone());
-        // WAIT for first pass to finish. This is required since we need to wait for all of the above handlers to finish before we can inject the CSP headers
-        // Hopefully there is a better way to do this
-        await r.clone().text();
+        let r = n.clone();
+
+        if (options.CacheMethod === "all" && pageCache.has(request.url)) {
+            headers = pageCache.get(request.url)!;
+        } else {
+            // This pass serves four purposes:
+            //  - It records all instances where CSP headers are required
+            //  - It checks if 'unsafe-inline' is required for styles
+            //  - Tt adds nonces/hashes to inline scripts (styles too, if no 'unsafe-inline' is required)
+            //  - Parse any CSP headers that are present in any existing meta tags
+            r = new HTMLRewriter()
+                .on("*", new InlineStyleFinder(options, headers))
+                .on("meta", new ExistingMetaHandler(options, request, headers))
+                .on('style', new CSSHandler(options, request, headers))
+                .on('script', new JSHandler(options, request, headers))
+                .on('a', new AnchorHandler(options, request, headers))
+                .on('*', new SrcHrefHandler(options, request, headers))
+                .transform(r);
+
+            // WAIT for first pass to finish. This is required since we need to wait for all of the above handlers to finish before we can inject the CSP headers
+            // Hopefully there is a better way to do this
+            await r.clone().text();
+        }
 
         if (options.InjectionMethod === "meta-tags") {
             // If method is "meta-tags", this pass adds a meta tag for the CSP directive, and adds the headers to it

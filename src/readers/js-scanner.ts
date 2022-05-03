@@ -7,8 +7,6 @@ const relativeURLRegex = /["'`]((?!http|https)(?!:\/\/)(?!:[0-9]+)[\/_a-z0-9.]+\
 const base64Regex = /['"`]?(data:(?<mime>[\w\/\-\.]+);(?<encoding>\w+),(?<data>.*))['"`]?/gi;
 const blobRegex = /["'`]?(blob:.*)["'`]?/gi;
 
-const urlCache = new Map<string, string[]>();
-
 export const scanJSFile = async (options: CSPOptions, headers: Map<string, string[]>, url: URL): Promise<void> => {
     if (!options.ScanExternal && url.origin !== localhost) { return; }
 
@@ -22,11 +20,6 @@ export const scanJSFile = async (options: CSPOptions, headers: Map<string, strin
 };
 
 export const scanJS = async (options: CSPOptions, headers: Map<string, string[]>, url: URL, text: string): Promise<void> => {
-    // Check cache
-    if (urlCache.has(url.toString())) {
-
-    }
-
     const promises = new Array<Promise<void>>();
 
     // Search for absolute URLs
@@ -49,8 +42,6 @@ export const scanJS = async (options: CSPOptions, headers: Map<string, string[]>
 
     // Search for relative URLs
     for (const match of text.matchAll(relativeURLRegex)) {
-        promises.push(urlToHeader(options, headers, new URL(match[1], url.toString())));
-
         // Search for service worker registration
         for (const match of text.matchAll(serviceWorkerRegex)) {
             promises.push(urlToHeader(options, headers, new URL(match[1], url.toString()), 'worker-src'));
