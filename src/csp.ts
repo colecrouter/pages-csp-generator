@@ -6,8 +6,10 @@ export type CSPInlineMethod = "nonce" | CSPInlineHash;
 export type CSPInjectionMethod = "meta-tags" | "headers";
 
 export interface CSPOptions {
-    method: CSPInjectionMethod;
-    inline: CSPInlineMethod;
+    InjectionMethod: CSPInjectionMethod;
+    InlineMethod: CSPInlineMethod;
+    ScanExternal?: boolean;
+    RecurseJS?: boolean;
 }
 
 export let localhost: string;
@@ -33,26 +35,26 @@ export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
         //  - Tt adds nonces/hashes to inline scripts (styles too, if no 'unsafe-inline' is required)
         //  - Parse any CSP headers that are present in any existing meta tags
         const r = new HTMLRewriter()
-            .on("*", new InlineStyleFinder(headers))
-            .on("meta", new ExistingMetaHandler(request, headers))
-            .on('style', new CSSHandler(request, headers, options.inline))
-            .on('script', new JSHandler(request, headers, options.inline))
-            .on('a', new AnchorHandler(headers))
-            .on('*', new SrcHrefHandler(request, headers))
+            .on("*", new InlineStyleFinder(options, headers))
+            .on("meta", new ExistingMetaHandler(options, request, headers))
+            .on('style', new CSSHandler(options, request, headers))
+            .on('script', new JSHandler(options, request, headers))
+            .on('a', new AnchorHandler(options, request, headers))
+            .on('*', new SrcHrefHandler(options, request, headers))
             .transform(n.clone());
         // WAIT for first pass to finish. This is required since we need to wait for all of the above handlers to finish before we can inject the CSP headers
         // Hopefully there is a better way to do this
         await r.clone().text();
 
-        if (options.method === "meta-tags") {
+        if (options.InjectionMethod === "meta-tags") {
             // If method is "meta-tags", this pass adds a meta tag for the CSP directive, and adds the headers to it
             // This assumes that any existing CSP meta tags have been removed and won't interfere
             return new HTMLRewriter()
-                .on("head", new InsertMetaTagHandler(headers))
+                .on("head", new InsertMetaTagHandler(options, headers))
                 .transform(r);
         } else {
             const newHeaders = new Headers([...r.headers.entries()]);
-            newHeaders.set("Content-Security-Policy", headersToString(headers));
+            newHeaders.set("Content-Security-Policy", headersToString(options, headers));
             return new Response(r.clone().body, { ...r, headers: newHeaders });
         }
     };
