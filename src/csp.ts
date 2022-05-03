@@ -1,5 +1,5 @@
 import { ExistingMetaHandler, AnchorHandler, SrcHrefHandler, InsertMetaTagHandler, CSSHandler, JSHandler, InlineStyleFinder } from "./handlers";
-import { CSPDirective, headersToString } from "./utils";
+import { CSPDirective, headersToString, parseCSP } from "./utils";
 
 export type CSPInlineHash = 'sha256' | 'sha384' | 'sha512';
 export type CSPInlineMethod = 'nonce' | CSPInlineHash;
@@ -22,6 +22,11 @@ export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
     return async ({ request, next }) => {
         let headers = new Map<CSPDirective, Array<string>>();
         headers.set('default-src', ["'self'"]);
+
+        // Get existing headers
+        if (request.headers.has('content-security-policy')) {
+            parseCSP(options, headers, request.headers.get('content-security-policy')!);
+        }
 
         const n = await next(); // Get next down the chain
 
