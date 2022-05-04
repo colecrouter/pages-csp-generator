@@ -20,6 +20,7 @@ const pageCache = new Map<string, Map<CSPDirective, Array<string>>>();
 
 export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
     return async ({ request, next }) => {
+        console.time("asd");
         let headers = new Map<CSPDirective, Array<string>>();
         headers.set('default-src', ["'self'"]);
 
@@ -39,28 +40,29 @@ export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
         if (!localhost) { localhost = new URL(request.url).origin; }
 
         let r = n.clone();
+        const url = new URL(request.url);
+        url.hash = "";
+        url.search = "";
 
-        if (options.CacheMethod === "all" && pageCache.has(request.url)) {
-            headers = pageCache.get(request.url)!;
-        } else {
-            // This pass serves four purposes:
-            //  - It records all instances where CSP headers are required
-            //  - It checks if 'unsafe-inline' is required for styles
-            //  - Tt adds nonces/hashes to inline scripts (styles too, if no 'unsafe-inline' is required)
-            //  - Parse any CSP headers that are present in any existing meta tags
-            r = new HTMLRewriter()
-                .on("*", new InlineStyleFinder(options, headers))
-                .on("meta", new ExistingMetaHandler(options, request, headers))
-                .on('style', new CSSHandler(options, request, headers))
-                .on('script', new JSHandler(options, request, headers))
-                .on('a', new AnchorHandler(options, request, headers))
-                .on('*', new SrcHrefHandler(options, request, headers))
-                .transform(r);
+        // This pass serves four purposes:
+        //  - It records all instances where CSP headers are required
+        //  - It checks if 'unsafe-inline' is required for styles
+        //  - Tt adds nonces/hashes to inline scripts (styles too, if no 'unsafe-inline' is required)
+        //  - Parse any CSP headers that are present in any existing meta tags
+        r = new HTMLRewriter()
+            .on("*", new InlineStyleFinder(options, headers))
+            .on("meta", new ExistingMetaHandler(options, request, headers))
+            .on('style', new CSSHandler(options, request, headers))
+            .on('script', new JSHandler(options, request, headers))
+            .on('a', new AnchorHandler(options, request, headers))
+            .on('*', new SrcHrefHandler(options, request, headers))
+            .transform(r);
 
-            // WAIT for first pass to finish. This is required since we need to wait for all of the above handlers to finish before we can inject the CSP headers
-            // Hopefully there is a better way to do this
-            await r.clone().text();
-        }
+        // WAIT for first pass to finish. This is required since we need to wait for all of the above handlers to finish before we can inject the CSP headers
+        // Hopefully there is a better way to do this
+        await r.clone().text();
+
+        console.timeEnd("asd");
 
         if (options.InjectionMethod === "meta-tags") {
             // If method is "meta-tags", this pass adds a meta tag for the CSP directive, and adds the headers to it

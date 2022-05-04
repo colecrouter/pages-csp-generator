@@ -81,7 +81,7 @@ export const SHAHash = async (options: CSPOptions, str: string, method: CSPInlin
 
 export const addHeader = (options: CSPOptions, headers: Map<string, string[]>, key: CSPDirective, value: string) => {
     if (value === "'none'") { return; } // None will get added at the end
-    if (!headers.has(key)) { headers.set(key, ["'self'"]); }// Initialize if not already
+    if (!headers?.has(key)) { headers.set(key, ["'self'"]); }// Initialize if not already
     if (headers.get(key)!.includes(value)) { return; } // Don't add if already there
     if (value === "'unsafe-inline") { return; } // If unsafe-inline, remove all nonces
 
@@ -130,6 +130,7 @@ export const headersToString = (options: CSPOptions, headers: Map<string, string
 };
 
 export const urlToHeader = async (options: CSPOptions, headers: Map<string, string[]>, url: URL, directive?: CSPDirective) => {
+
     // Get directive
     directive = directive || getDirectiveFromExtension(options, url) || await getDirectiveFromFetch(options, url);
     if (!directive) { return; }

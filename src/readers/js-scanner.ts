@@ -24,7 +24,9 @@ export const scanJS = async (options: CSPOptions, headers: Map<string, string[]>
 
     // Search for absolute URLs
     for (const match of text.matchAll(absoluteURLRegex)) {
-        promises.push(urlToHeader(options, headers, new URL(match[1], url.toString())));
+        const newURL = new URL(match[1], url.origin);
+        promises.push(urlToHeader(options, headers, newURL));
+        promises.push(scanJSFile(options, headers, newURL));
     }
 
     // Search for base64
@@ -40,22 +42,17 @@ export const scanJS = async (options: CSPOptions, headers: Map<string, string[]>
         addHeader(options, headers, "img-src", "blob:");
     }
 
-    // Search for relative URLs
-    for (const match of text.matchAll(relativeURLRegex)) {
-        // Search for service worker registration
-        for (const match of text.matchAll(serviceWorkerRegex)) {
-            promises.push(urlToHeader(options, headers, new URL(match[1], url.toString()), 'worker-src'));
-        }
 
-        // Search for web worker
-        for (const match of text.matchAll(webWorkerRegex)) {
-            promises.push(urlToHeader(options, headers, new URL(match[1], url.toString()), 'worker-src'));
-        }
+    // Search for service worker registration
+    for (const match of text.matchAll(serviceWorkerRegex)) {
+        console.log(match[1]);
+        promises.push(urlToHeader(options, headers, new URL(match[1], url.origin), 'worker-src'));
+    }
 
-        // Recurse
-        if (options.RecurseJS) {
-            promises.push(scanJSFile(options, headers, new URL(match[1], url.toString())));
-        }
+    // Search for web worker
+    for (const match of text.matchAll(webWorkerRegex)) {
+        console.log(match[1]);
+        promises.push(urlToHeader(options, headers, new URL(match[1], url.origin), 'worker-src'));
     }
 
     await Promise.all(promises);

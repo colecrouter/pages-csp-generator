@@ -1,4 +1,4 @@
-import { CSPInlineMethod, CSPOptions } from "./csp";
+import { CSPOptions } from "./csp";
 import { scanCSS, scanCSSFile } from "./readers/css-scanner";
 import { scanJS, scanJSFile } from "./readers/js-scanner";
 import { absoluteURLRegex as AbsoluteURLRegex, addHeader, headersToString, parseCSP, randomNonce, SHAHash, urlToHeader } from "./utils";
@@ -117,7 +117,7 @@ class InlineScriptHandler {
             }
 
             // Add CSP header
-            await urlToHeader(this.options, this.headers, url);
+            addHeader(this.options, this.headers, "script-src", formattedIdent);
             return;
         }
 
@@ -126,7 +126,8 @@ class InlineScriptHandler {
         let formattedIdent: string;
         ident = randomNonce();
         element.setAttribute("nonce", ident); // We need to set the nonce attribute on the element
-        formattedIdent = `'nonce-${ident}'`; // Format the nonce for CSP
+        formattedIdent = `nonce-${ident}`; // Format the nonce for CSP
+        console.log(formattedIdent);
 
         // Add CSP header
         if (this.tagName === "script") { addHeader(this.options, this.headers, "script-src", formattedIdent); }
@@ -172,6 +173,14 @@ export class SrcHrefHandler {
                 addHeader(this.options, this.headers, 'script-src', 'blob:');
             }
             return;
+        }
+
+        // If 'strict-dynamic' is in the script-src directive and we're using nonces, we'll add a nonce
+        if (element.tagName === 'script' && this.headers.get("script-src")?.includes("'strict-dynamic'") && this.options.InlineMethod === "nonce") {
+            const ident = randomNonce();
+            element.setAttribute("nonce", ident);
+            const formattedIdent = `'nonce-${ident}'`;
+            addHeader(this.options, this.headers, 'script-src', formattedIdent);
         }
 
         // URL to headers
