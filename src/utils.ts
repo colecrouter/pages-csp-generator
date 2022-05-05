@@ -1,9 +1,9 @@
-import { CSPInlineHash, CSPOptions, localhost } from "./csp";
+import { CSPOptions, localhost } from "./csp";
 
 export const absoluteURLRegex = /["'`]?((?:http|https):\/\/[a-z0-9]+(?:\.[a-z]*)?(?::[0-9]+)?[\/a-z0-9.\-@]*)[\?#]?.*?["'`]?/gi;
 export const base64Regex = /['"`]?(data:(?<mime>[\w\/\-\.]+);(?<encoding>\w+),(?<data>.*))['"`]?/gi;
 
-const CSPDirectives: string[] = [
+const CSPDirectives: CSPDirective[] = [
     "default-src",
     "script-src",
     "style-src",
@@ -50,6 +50,8 @@ export type CSPDirective =
     "prefetch-src" |
     "navigate-to";
 
+export type CSPHeaders = Map<CSPDirective, Set<string>>;
+
 const fetchDirectiveCache = new Map<string, CSPDirective | null>();
 
 export const randomNonce = (): string => {
@@ -57,13 +59,13 @@ export const randomNonce = (): string => {
     return a;
 };
 
-export const SHAHash = async (options: CSPOptions, str: string, method: CSPInlineHash): Promise<string> => {
+export const SHAHash = async (options: CSPOptions, str: string): Promise<string> => {
     const encoder = new TextEncoder();
     const data = encoder.encode(str);
 
     // Translate method to appropriate hash function
     let translatedMethod;
-    switch (method) {
+    switch (options.InlineMethod!) {
         case "sha256":
             translatedMethod = "SHA-256";
             break;
@@ -73,63 +75,86 @@ export const SHAHash = async (options: CSPOptions, str: string, method: CSPInlin
         case "sha512":
             translatedMethod = "SHA-512";
             break;
+        default:
+            throw new Error(`unknown hash method: ${options.InlineMethod}`);
     }
 
     const hash = await crypto.subtle.digest(translatedMethod, data);
     return btoa(String.fromCharCode(...new Uint8Array(hash)));;
 };
 
-export const addHeader = (options: CSPOptions, headers: Map<string, string[]>, key: CSPDirective, value: string) => {
-    if (value === "'none'") { return; } // None will get added at the end
-    if (!headers?.has(key)) { headers.set(key, ["'self'"]); }// Initialize if not already
-    if (headers.get(key)!.includes(value)) { return; } // Don't add if already there
-    if (value === "'unsafe-inline") { return; } // If unsafe-inline, remove all nonces
+export const addHeader = (options: CSPOptions, headers: CSPHeaders, key: CSPDirective, value: URL | string) => {
+    if (value === "'none'") { return; }
+    if (!headers.has(key)) { headers.set(key, new Set()); }// Initialize if not already
+    const values = headers.get(key)!;
 
-    // Check for existing values that conflict
-    const values = headers.get(key);
-    for (const existing in values) { // I'm not sure why, this sets 'existing' a string of an index (number), instead of the value????
-        // Check for existing values that are less specific than the new value
-        if (value.startsWith(values[existing as any])) {
-            return;
-        }
-
-        // Check for existing values that are more specific than the new value
-        // I don't know if this will happen in this implementation yet, but maybe in the future
-        if (values[existing as any].startsWith(value)) {
-            values.splice(existing as any, 1);
-        }
+    // Add value
+    if (typeof value === 'string') {
+        values.add(value);
+        return;
     }
 
+    // Case for 'data:' and 'blob:'
+    if (value.origin === null) {
+        values.add(value.href);
+        return;
+    }
 
-    headers.get(key)!.push(value);
+    // If URL, check for existing values that conflict
+    value.hash = '';
+    value.search = '';
+    for (const [existing, _] of values.entries()) { // I'm not sure why, this sets 'existing' a string of an index (number), instead of the value????
+        if (existing.startsWith("'") && existing.endsWith("'")) { continue; } // If not url, skip
+
+        const existingValue = new URL(existing);
+        if (existingValue.origin !== value.origin) { continue; } // Not on same domain, will not conflict, skip
+        if (existingValue.pathname === '/') { return; } // Already have domain wide access, skip
+        if (value.pathname === '/') { values.delete(existing); } // Remove the more specific directive, it will be redundant
+
+    }
+
+    // Add value, use 'self' if set in options
+    values.add(options.UseSelf && value.origin === localhost ? "'self'" : value.toString());
 };
 
-export const parseCSP = (options: CSPOptions, headers: Map<string, string[]>, csp: string) => {
+export const parseCSP = (options: CSPOptions, headers: CSPHeaders, csp: string) => {
     const cspList = csp.split(";");
     for (const cspItem of cspList) {
         const [key, ...values] = cspItem.trim().split(" ");
         if (key && values) {
             for (const value of values) {
-                addHeader(options, headers, key as CSPDirective, value);
+                if (value.startsWith("'") && value.endsWith("'")) {
+                    addHeader(options, headers, key as CSPDirective, value);
+                    continue;
+                }
+
+                // Try to parse as URL
+                try {
+                    const url = new URL(value);
+                    addHeader(options, headers, key as CSPDirective, url);
+                } catch (e) { }
             }
         }
     }
 };
 
-export const headersToString = (options: CSPOptions, headers: Map<string, string[]>): string => {
+export const headersToString = (options: CSPOptions, headers: CSPHeaders): string => {
+    // Make sure default is set to 'none'
+    if (!headers.has("default-src")) { headers.set("default-src", new Set(["'none'"])); }
+
     // Build CSP header
     let csp = "";
     for (const directive of CSPDirectives) {
-        if (headers.has(directive)) {
-            csp += `${directive} ${headers.get(directive)!.join(" ")}; `;
-        } else if (directive.endsWith("-src")) {
-            csp += `${directive} 'none'; `;
+        const values = headers.get(directive);
+        if (values && values.size > 0) {
+            csp += `${directive} ${[...headers.get(directive)!].join(" ")}; `;
         }
     }
+
     return csp;
 };
 
-export const urlToHeader = async (options: CSPOptions, headers: Map<string, string[]>, url: URL, directive?: CSPDirective) => {
+export const urlToHeader = async (options: CSPOptions, headers: CSPHeaders, url: URL, directive?: CSPDirective) => {
 
     // Get directive
     directive = directive || getDirectiveFromExtension(options, url) || await getDirectiveFromFetch(options, url);
@@ -137,15 +162,15 @@ export const urlToHeader = async (options: CSPOptions, headers: Map<string, stri
 
 
     // If pathname has ${ in it, we'll assume it's a template and return the hostname.
-    if (url.pathname.includes("$%7B")) { return addHeader(options, headers, directive, url.hostname); }
+    if (url.pathname.includes("$%7B")) { return addHeader(options, headers, directive, url); }
 
     // Absolute URL
     url.hash = "";
     url.search = "";
-    if (url.origin !== localhost) { return addHeader(options, headers, directive, url.toString()); }
+    if (url.origin !== localhost) { return addHeader(options, headers, directive, url); }
 
     // Relative URL
-    return addHeader(options, headers, directive, "'self'");
+    return addHeader(options, headers, directive, options.UseSelf ? "'self'" : url);
 };
 
 const getDirectiveFromExtension = (options: CSPOptions, url: URL): CSPDirective | undefined => {
@@ -179,7 +204,7 @@ const getDirectiveFromExtension = (options: CSPOptions, url: URL): CSPDirective 
 };
 
 const getDirectiveFromFetch = async (options: CSPOptions, url: URL): Promise<CSPDirective | undefined> => {
-    const doCache = options.CacheMethod === 'all' || (url.origin === localhost && options.CacheMethod === 'localhost');
+    const doCache = url.origin === localhost;
 
     // Check cache
     if (doCache && fetchDirectiveCache.has(url.toString())) { return fetchDirectiveCache.get(url.toString()) || undefined; }

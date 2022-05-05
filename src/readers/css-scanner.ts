@@ -1,11 +1,9 @@
 import { CSPOptions, localhost } from "../csp";
-import { addHeader, urlToHeader } from "../utils";
+import { CSPHeaders, urlToHeader } from "../utils";
 
-const absoluteURLRegex = /["'`]?((?:http|https):\/\/[a-z0-9]+(?:\.[a-z]*)?(?::[0-9]+)?[\/a-z0-9.]*)[\?#]?.*?["'`]?/gi;
-const relativeURLRegex = /url\(["']?(?!.*\/\/)(.*\.[a-z]+)["']?\)/gi;
-const base64Regex = /url\(['"`]?(data:(?<mime>[\w\/\-\.+]+);?(?<encoding>\w+)?,(?<data>.*)(?![^'"`]))['"`]?\)/gi;
+const urlRegex = /url\(["']?(.*\.[a-z]+)["']?\)/gi;
 
-export const scanCSSFile = async (options: CSPOptions, headers: Map<string, string[]>, url: URL): Promise<void> => {
+export const scanCSSFile = async (options: CSPOptions, headers: CSPHeaders, url: URL): Promise<void> => {
     if (!options.ScanExternal && url.origin !== localhost) { return; }
 
     // Get file contents
@@ -17,27 +15,12 @@ export const scanCSSFile = async (options: CSPOptions, headers: Map<string, stri
     await scanCSS(options, headers, url, text);
 };
 
-export const scanCSS = async (options: CSPOptions, headers: Map<string, string[]>, url: URL, text: string): Promise<void> => {
+export const scanCSS = async (options: CSPOptions, headers: CSPHeaders, url: URL, text: string): Promise<void> => {
     const promises = new Array<Promise<void>>();
 
-    /// Search for absolute URLs
-    for (const match of text.matchAll(absoluteURLRegex)) {
-        promises.push(urlToHeader(options, headers, new URL(match[1], url.toString())));
-    }
-
-    // Search for base64
-    for (const match of text.matchAll(base64Regex)) {
-        if (match.groups?.mime.startsWith("image/")) {
-            addHeader(options, headers, "img-src", "data:");
-        }
-    }
-
     // Search for relative URLs
-    for (const match of text.matchAll(relativeURLRegex)) {
-        promises.push(urlToHeader(options, headers, new URL(match[1], url.toString())));
-
-        // Recurse
-        // if (options.RecurseJS) { await scanCSSFile(options, headers, new URL(match[1], url.toString())); }
+    for (const match of text.matchAll(urlRegex)) {
+        promises.push(urlToHeader(options, headers, new URL(match[1], url.toString()), 'img-src'));
     }
 
     await Promise.all(promises);

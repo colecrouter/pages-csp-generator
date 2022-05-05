@@ -1,28 +1,22 @@
 import { ExistingMetaHandler, AnchorHandler, SrcHrefHandler, InsertMetaTagHandler, CSSHandler, JSHandler, InlineStyleFinder } from "./handlers";
 import { CSPDirective, headersToString, parseCSP } from "./utils";
 
-export type CSPInlineHash = 'sha256' | 'sha384' | 'sha512';
-export type CSPInlineMethod = 'nonce' | CSPInlineHash;
-export type CSPInjectionMethod = 'meta-tags' | 'headers';
-export type CSPCacheMethod = 'none' | 'localhost' | 'all';
-
 export interface CSPOptions {
-    InjectionMethod: CSPInjectionMethod;
-    InlineMethod: CSPInlineMethod;
-    CacheMethod: CSPCacheMethod;
-    ScanExternal?: boolean;
-    RecurseJS?: boolean;
+    InjectionMethod: 'meta-tags' | 'headers';
+    InlineMethod: 'sha256' | 'sha384' | 'sha512' | 'nonce';
+    UseSelf: boolean;
+    ScanExternal: boolean;
 }
 
 export let localhost: string;
 
-const pageCache = new Map<string, Map<CSPDirective, Array<string>>>();
+export const InjectCSP = (unformattedOptions: Partial<CSPOptions>): PagesFunction<{}> => {
+    // Apply defaults to options
+    const defaults: CSPOptions = { InjectionMethod: 'meta-tags', InlineMethod: 'nonce', UseSelf: true, ScanExternal: false };
+    const options: CSPOptions = { ...defaults, ...unformattedOptions };
 
-export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
     return async ({ request, next }) => {
-        console.time("asd");
-        let headers = new Map<CSPDirective, Array<string>>();
-        headers.set('default-src', ["'self'"]);
+        let headers = new Map<CSPDirective, Set<string>>();
 
         // Get existing headers
         if (request.headers.has('content-security-policy')) {
@@ -32,11 +26,9 @@ export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
         const n = await next(); // Get next down the chain
 
         // Skip if we're not on a page
-        if (!n.clone().headers.get("content-type")?.includes("text/html")) {
-            return n;
-        }
+        if (!n.clone().headers.get("content-type")?.includes("text/html")) { return n; }
 
-        // Cheeky fetch not being good workaround
+        // Establish what is localhost
         if (!localhost) { localhost = new URL(request.url).origin; }
 
         let r = n.clone();
@@ -62,8 +54,6 @@ export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
         // Hopefully there is a better way to do this
         await r.clone().text();
 
-        console.timeEnd("asd");
-
         if (options.InjectionMethod === "meta-tags") {
             // If method is "meta-tags", this pass adds a meta tag for the CSP directive, and adds the headers to it
             // This assumes that any existing CSP meta tags have been removed and won't interfere
@@ -71,6 +61,7 @@ export const InjectCSP = (options: CSPOptions): PagesFunction<{}> => {
                 .on("head", new InsertMetaTagHandler(options, headers))
                 .transform(r);
         } else {
+            // If method is "headers", add the headers to the response
             const newHeaders = new Headers([...r.headers.entries()]);
             newHeaders.set("Content-Security-Policy", headersToString(options, headers));
             return new Response(r.clone().body, { ...r, headers: newHeaders });

@@ -1,13 +1,13 @@
 import { CSPOptions } from "./csp";
 import { scanCSS, scanCSSFile } from "./readers/css-scanner";
-import { scanJS, scanJSFile } from "./readers/js-scanner";
-import { absoluteURLRegex as AbsoluteURLRegex, addHeader, headersToString, parseCSP, randomNonce, SHAHash, urlToHeader } from "./utils";
+import { scanManifestFile } from "./readers/manifest-scanner";
+import { absoluteURLRegex as AbsoluteURLRegex, addHeader, CSPHeaders, headersToString, parseCSP, randomNonce, SHAHash, urlToHeader } from "./utils";
 
 export class InsertMetaTagHandler {
     readonly options: CSPOptions;
-    readonly headers: Map<string, string[]>;
+    readonly headers: CSPHeaders;
 
-    constructor(options: CSPOptions, headers: Map<string, string[]>) {
+    constructor(options: CSPOptions, headers: CSPHeaders) {
         this.options = options;
         this.headers = headers;
     }
@@ -21,9 +21,9 @@ export class InsertMetaTagHandler {
 export class ExistingMetaHandler {
     readonly options: CSPOptions;
     readonly request: Request;
-    readonly headers: Map<string, string[]>;
+    readonly headers: CSPHeaders;
 
-    constructor(options: CSPOptions, request: Request, headers: Map<string, string[]>) {
+    constructor(options: CSPOptions, request: Request, headers: CSPHeaders) {
         this.options = options;
         this.request = request;
         this.headers = headers;
@@ -44,11 +44,11 @@ export class ExistingMetaHandler {
 class InlineScriptHandler {
     readonly options: CSPOptions;
     readonly request: Request;
-    readonly headers: Map<string, string[]>;
+    readonly headers: CSPHeaders;
     readonly tagName: string;
     buffer = "";
 
-    constructor(options: CSPOptions, request: Request, headers: Map<string, string[]>, tagName: string) {
+    constructor(options: CSPOptions, request: Request, headers: CSPHeaders, tagName: string) {
         this.options = options;
         this.request = request;
         this.headers = headers;
@@ -61,12 +61,10 @@ class InlineScriptHandler {
         this.buffer += text.text;
         if (!text.lastInTextNode) { return; }
 
-        // Recurse and find URLs
+        // Find URLs
         const url = new URL(this.request.url);
-        if (this.tagName === "script") { await scanJS(this.options, this.headers, url, this.buffer); }
-        else if (this.tagName === "style") { await scanCSS(this.options, this.headers, url, this.buffer); }
-
-        if (this.tagName == "style" && this.headers.get("style-src")?.includes("'unsafe-inline'")) { return; }; // Inline style attribute somewhere in page, don't add nonce
+        if (this.tagName === "style") { await scanCSS(this.options, this.headers, url, this.buffer); }
+        if (this.tagName == "style" && this.headers.get("style-src")?.has("'unsafe-inline'")) { return; }; // Inline style attribute somewhere in page, don't add nonce
         if (this.options.InlineMethod === "nonce") { return; } // We want element() to handle nonce generation
 
         // Calculate hash
@@ -76,7 +74,7 @@ class InlineScriptHandler {
             case "sha256":
             case "sha384":
             case "sha512":
-                ident = await SHAHash(this.options, this.buffer, this.options.InlineMethod); // Wait for the handler to have parsed the text
+                ident = await SHAHash(this.options, this.buffer); // Wait for the handler to have parsed the text
                 formattedIdent = `'${this.options.InlineMethod}-${ident}'`; // Format the hash for CSP
                 break;
         }
@@ -90,13 +88,13 @@ class InlineScriptHandler {
 
     // Add nonce to inline script elements
     async element(element: Element) {
-        if (this.tagName == "style" && this.headers.get("style-src")?.includes("'unsafe-inline'")) { return; }; // Inline style attribute somewhere in page, don't add nonce
+        if (this.tagName == "style" && this.headers.get("style-src")?.has("'unsafe-inline'")) { return; }; // Inline style attribute somewhere in page, don't add nonce
 
         // If there is an src or href attribute, it's not inline
         // We'll let SrcHrefHandler handle it
         // BUT, if the 'script-src' directive has 'strict-dynamic', then do it anyway, cuz we need that to run inline scripts
-        // If the metod isn't 'nonce', we'll have to hash it here instead of in text() (if there's 'strict-dynamic')
-        if ((element.getAttribute("src") || element.getAttribute("href")) && !(this.tagName == "script" && this.headers.get("script-src")?.includes("'strict-dynamic'"))) { return; }
+        // If the method isn't 'nonce', we'll have to hash it here instead of in text() (if there's 'strict-dynamic')
+        if (!(element.getAttribute("src") || element.getAttribute("href")) && !(this.tagName == "script" && this.headers.get("script-src")?.has("'strict-dynamic'")) && this.options.InlineMethod != 'nonce') { return; }
 
         // We want element() to handle nonce generation, UNLESS we have a 'strict-dynamic' directive, in which case, we'll do it here
         if (this.tagName == "script" && element.getAttribute("src") && this.options.InlineMethod !== "nonce") {
@@ -111,7 +109,7 @@ class InlineScriptHandler {
                 case "sha256":
                 case "sha384":
                 case "sha512":
-                    ident = await SHAHash(this.options, await text.text(), this.options.InlineMethod); // Wait for the handler to have parsed the text
+                    ident = await SHAHash(this.options, await text.text()); // Wait for the handler to have parsed the text
                     formattedIdent = `'${this.options.InlineMethod}-${ident}'`; // Format the hash for CSP
                     break;
             }
@@ -126,8 +124,7 @@ class InlineScriptHandler {
         let formattedIdent: string;
         ident = randomNonce();
         element.setAttribute("nonce", ident); // We need to set the nonce attribute on the element
-        formattedIdent = `nonce-${ident}`; // Format the nonce for CSP
-        console.log(formattedIdent);
+        formattedIdent = `'nonce-${ident}'`; // Format the nonce for CSP
 
         // Add CSP header
         if (this.tagName === "script") { addHeader(this.options, this.headers, "script-src", formattedIdent); }
@@ -136,23 +133,23 @@ class InlineScriptHandler {
 };
 
 export class CSSHandler extends InlineScriptHandler {
-    constructor(options: CSPOptions, request: Request, headers: Map<string, string[]>) {
+    constructor(options: CSPOptions, request: Request, headers: CSPHeaders) {
         super(options, request, headers, "style");
     }
 }
 
 export class JSHandler extends InlineScriptHandler {
-    constructor(options: CSPOptions, request: Request, headers: Map<string, string[]>) {
+    constructor(options: CSPOptions, request: Request, headers: CSPHeaders) {
         super(options, request, headers, "script");
     }
 }
 
 export class SrcHrefHandler {
     readonly options: CSPOptions;
-    readonly headers: Map<string, string[]>;
+    readonly headers: CSPHeaders;
     readonly request: Request;
 
-    constructor(options: CSPOptions, request: Request, headers: Map<string, string[]>) {
+    constructor(options: CSPOptions, request: Request, headers: CSPHeaders) {
         this.options = options;
         this.request = request;
         this.headers = headers;
@@ -160,9 +157,9 @@ export class SrcHrefHandler {
 
     async element(element: Element) {
         if (!element.getAttribute("src") && !element.getAttribute("href")) { return; }
+        const value = element.getAttribute("src") || element.getAttribute("href")!;
 
         // Check for base64 and blobs
-        const value = element.getAttribute("src") || element.getAttribute("href")!;
         if (value.startsWith("data:") && element.tagName === "img") {
             addHeader(this.options, this.headers, 'img-src', 'data:');
             return;
@@ -176,7 +173,7 @@ export class SrcHrefHandler {
         }
 
         // If 'strict-dynamic' is in the script-src directive and we're using nonces, we'll add a nonce
-        if (element.tagName === 'script' && this.headers.get("script-src")?.includes("'strict-dynamic'") && this.options.InlineMethod === "nonce") {
+        if (element.tagName === 'script' && this.headers.get("script-src")?.has("'strict-dynamic'") && this.options.InlineMethod === "nonce") {
             const ident = randomNonce();
             element.setAttribute("nonce", ident);
             const formattedIdent = `'nonce-${ident}'`;
@@ -191,10 +188,7 @@ export class SrcHrefHandler {
         url.search = ''; // Remove search
         switch (element.tagName) {
             case 'script':
-                await scanJSFile(this.options, this.headers, url);
-                if (AbsoluteURLRegex.test(url.toString())) {
-                    await urlToHeader(this.options, this.headers, url);
-                }
+                await urlToHeader(this.options, this.headers, url);
                 break;
             case 'link':
                 switch (element.getAttribute("rel") || "") {
@@ -207,7 +201,7 @@ export class SrcHrefHandler {
                         await urlToHeader(this.options, this.headers, url, 'img-src');
                         break;
                     case 'manifest':
-                        await scanJSFile(this.options, this.headers, url);
+                        await scanManifestFile(this.options, this.headers, url);
                         await urlToHeader(this.options, this.headers, url, 'manifest-src');
                         break;
                     case 'prerender':
@@ -217,7 +211,6 @@ export class SrcHrefHandler {
                     case 'preload':
                         switch (element.getAttribute("as")) {
                             case 'script':
-                                await scanJSFile(this.options, this.headers, url);
                                 await urlToHeader(this.options, this.headers, url, 'script-src');
                                 break;
                             case 'style':
@@ -247,15 +240,36 @@ export class SrcHrefHandler {
                                 await urlToHeader(this.options, this.headers, url, 'connect-src');
                                 break;
                             case 'manifest':
-                                await scanJSFile(this.options, this.headers, url);
+                                await scanManifestFile(this.options, this.headers, url);
                                 await urlToHeader(this.options, this.headers, url, 'manifest-src');
                                 break;
                         }
                         break;
                 }
                 break;
-            case "img":
+            case 'img':
                 await urlToHeader(this.options, this.headers, url, 'img-src');
+                break;
+            case 'audio':
+            case 'video':
+                await urlToHeader(this.options, this.headers, url, 'media-src');
+                break;
+            case 'iframe':
+            case 'frame':
+                await urlToHeader(this.options, this.headers, url, 'child-src');
+                break;
+            case 'object':
+            case 'embed':
+            case 'applet':
+                await urlToHeader(this.options, this.headers, url, 'object-src');
+                break;
+            case 'form':
+                await urlToHeader(this.options, this.headers, url, 'form-action');
+                break;
+            // case 'a':
+            //     await urlToHeader(this.options, this.headers, url, 'navigate-to');
+            //     break;
+
         }
     }
 }
@@ -263,9 +277,9 @@ export class SrcHrefHandler {
 export class AnchorHandler {
     readonly options: CSPOptions;
     readonly request: Request;
-    readonly headers: Map<string, string[]>;
+    readonly headers: CSPHeaders;
 
-    constructor(options: CSPOptions, request: Request, headers: Map<string, string[]>) {
+    constructor(options: CSPOptions, request: Request, headers: CSPHeaders) {
         this.options = options;
         this.request = request;
         this.headers = headers;
@@ -281,9 +295,9 @@ export class AnchorHandler {
 
 export class InlineStyleFinder {
     readonly options: CSPOptions;
-    readonly headers: Map<string, string[]>;
+    readonly headers: CSPHeaders;
 
-    constructor(options: CSPOptions, headers: Map<string, string[]>) {
+    constructor(options: CSPOptions, headers: CSPHeaders) {
         this.options = options;
         this.headers = headers;
     }
