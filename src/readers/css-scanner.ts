@@ -1,5 +1,5 @@
 import { CSPOptions, localhost } from "../csp";
-import { CSPHeaders, urlToHeader } from "../utils";
+import { CSPHeaders, URLToHeader } from "../utils";
 
 const urlRegex = /url\(["']?(.*\.[a-z]+)["']?\)/gi;
 
@@ -20,7 +20,7 @@ export const scanCSS = async (options: CSPOptions, headers: CSPHeaders, url: URL
 
     // Search for relative URLs
     for (const match of text.matchAll(urlRegex)) {
-        promises.push(urlToHeader(options, headers, new URL(match[1], url.toString()), 'img-src'));
+        promises.push(URLToHeader(options, headers, new URL(match[1], url.toString()), 'img-src'));
     }
 
     await Promise.all(promises);

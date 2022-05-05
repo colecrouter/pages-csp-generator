@@ -54,7 +54,7 @@ export type CSPHeaders = Map<CSPDirective, Set<string>>;
 
 const fetchDirectiveCache = new Map<string, CSPDirective | null>();
 
-export const randomNonce = (): string => {
+export const RandomNonce = (): string => {
     for (var a = '', b = 36; a.length < 16;) a += (Math.random() * b | 0).toString(b);
     return a;
 };
@@ -83,7 +83,7 @@ export const SHAHash = async (options: CSPOptions, str: string): Promise<string>
     return btoa(String.fromCharCode(...new Uint8Array(hash)));;
 };
 
-export const addHeader = (options: CSPOptions, headers: CSPHeaders, key: CSPDirective, value: URL | string) => {
+export const AddHeader = (options: CSPOptions, headers: CSPHeaders, key: CSPDirective, value: URL | string) => {
     if (value === "'none'") { return; }
     if (!headers.has(key)) { headers.set(key, new Set()); }// Initialize if not already
     const values = headers.get(key)!;
@@ -117,28 +117,28 @@ export const addHeader = (options: CSPOptions, headers: CSPHeaders, key: CSPDire
     values.add(options.UseSelf && value.origin === localhost ? "'self'" : value.toString());
 };
 
-export const parseCSP = (options: CSPOptions, headers: CSPHeaders, csp: string) => {
+export const ParseCSP = (options: CSPOptions, headers: CSPHeaders, csp: string) => {
     const cspList = csp.split(";");
     for (const cspItem of cspList) {
         const [key, ...values] = cspItem.trim().split(" ");
         if (key && values) {
             for (const value of values) {
                 if (value.startsWith("'") && value.endsWith("'")) {
-                    addHeader(options, headers, key as CSPDirective, value);
+                    AddHeader(options, headers, key as CSPDirective, value);
                     continue;
                 }
 
                 // Try to parse as URL
                 try {
                     const url = new URL(value);
-                    addHeader(options, headers, key as CSPDirective, url);
+                    AddHeader(options, headers, key as CSPDirective, url);
                 } catch (e) { }
             }
         }
     }
 };
 
-export const headersToString = (options: CSPOptions, headers: CSPHeaders): string => {
+export const HeadersToString = (options: CSPOptions, headers: CSPHeaders): string => {
     // Make sure default is set to 'none'
     if (!headers.has("default-src")) { headers.set("default-src", new Set(["'none'"])); }
 
@@ -154,7 +154,7 @@ export const headersToString = (options: CSPOptions, headers: CSPHeaders): strin
     return csp;
 };
 
-export const urlToHeader = async (options: CSPOptions, headers: CSPHeaders, url: URL, directive?: CSPDirective) => {
+export const URLToHeader = async (options: CSPOptions, headers: CSPHeaders, url: URL, directive?: CSPDirective) => {
 
     // Get directive
     directive = directive || getDirectiveFromExtension(options, url) || await getDirectiveFromFetch(options, url);
@@ -162,16 +162,18 @@ export const urlToHeader = async (options: CSPOptions, headers: CSPHeaders, url:
 
 
     // If pathname has ${ in it, we'll assume it's a template and return the hostname.
-    if (url.pathname.includes("$%7B")) { return addHeader(options, headers, directive, url); }
+    if (url.pathname.includes("$%7B")) { return AddHeader(options, headers, directive, url); }
 
     // Absolute URL
     url.hash = "";
     url.search = "";
-    if (url.origin !== localhost) { return addHeader(options, headers, directive, url); }
+    if (url.origin !== localhost) { return AddHeader(options, headers, directive, url); }
 
     // Relative URL
-    return addHeader(options, headers, directive, options.UseSelf ? "'self'" : url);
+    return AddHeader(options, headers, directive, options.UseSelf ? "'self'" : url);
 };
+
+// Not currently used
 
 const getDirectiveFromExtension = (options: CSPOptions, url: URL): CSPDirective | undefined => {
     switch (url.pathname.split(".").pop()) {

@@ -1,6 +1,6 @@
 import { WebAppManifest } from "web-app-manifest";
 import { CSPOptions, localhost } from "../csp";
-import { addHeader, CSPHeaders, urlToHeader } from "../utils";
+import { AddHeader, CSPHeaders, URLToHeader } from "../utils";
 
 const absoluteURLRegex = /["'`]?((?:http|https):\/\/[a-z0-9]+(?:\.[a-z]*)?(?::[0-9]+)?[\/a-z0-9.]*)[\?#]?.*?["'`]?/gi;
 const relativeURLRegex = /url\(["']?(?!.*\/\/)(.*\.[a-z]+)["']?\)/gi;
@@ -21,6 +21,6 @@ export const scanManifest = async (options: CSPOptions, headers: CSPHeaders, url
     manifest as WebAppManifest;
 
     for (const value of Object.entries(manifest.icons)) {
-        urlToHeader(options, headers, url, 'img-src');
+        URLToHeader(options, headers, url, 'img-src');
     };
 };

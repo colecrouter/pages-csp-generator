@@ -1,5 +1,5 @@
 import { ExistingMetaHandler, AnchorHandler, SrcHrefHandler, InsertMetaTagHandler, CSSHandler, JSHandler, InlineStyleFinder } from "./handlers";
-import { CSPDirective, headersToString, parseCSP } from "./utils";
+import { CSPDirective, HeadersToString, ParseCSP } from "./utils";
 
 export interface CSPOptions {
     InjectionMethod: 'meta-tags' | 'headers';
@@ -12,7 +12,7 @@ export let localhost: string;
 
 export const InjectCSP = (unformattedOptions: Partial<CSPOptions>): PagesFunction<{}> => {
     // Apply defaults to options
-    const defaults: CSPOptions = { InjectionMethod: 'meta-tags', InlineMethod: 'nonce', UseSelf: true, ScanExternal: false };
+    const defaults: CSPOptions = { InjectionMethod: 'headers', InlineMethod: 'nonce', UseSelf: true, ScanExternal: false };
     const options: CSPOptions = { ...defaults, ...unformattedOptions };
 
     return async ({ request, next }) => {
@@ -20,7 +20,7 @@ export const InjectCSP = (unformattedOptions: Partial<CSPOptions>): PagesFunctio
 
         // Get existing headers
         if (request.headers.has('content-security-policy')) {
-            parseCSP(options, headers, request.headers.get('content-security-policy')!);
+            ParseCSP(options, headers, request.headers.get('content-security-policy')!);
         }
 
         const n = await next(); // Get next down the chain
@@ -31,16 +31,12 @@ export const InjectCSP = (unformattedOptions: Partial<CSPOptions>): PagesFunctio
         // Establish what is localhost
         if (!localhost) { localhost = new URL(request.url).origin; }
 
-        let r = n.clone();
-        const url = new URL(request.url);
-        url.hash = "";
-        url.search = "";
-
         // This pass serves four purposes:
         //  - It records all instances where CSP headers are required
         //  - It checks if 'unsafe-inline' is required for styles
         //  - Tt adds nonces/hashes to inline scripts (styles too, if no 'unsafe-inline' is required)
         //  - Parse any CSP headers that are present in any existing meta tags
+        let r = n.clone();
         r = new HTMLRewriter()
             .on("*", new InlineStyleFinder(options, headers))
             .on("meta", new ExistingMetaHandler(options, request, headers))
@@ -63,7 +59,7 @@ export const InjectCSP = (unformattedOptions: Partial<CSPOptions>): PagesFunctio
         } else {
             // If method is "headers", add the headers to the response
             const newHeaders = new Headers([...r.headers.entries()]);
-            newHeaders.set("Content-Security-Policy", headersToString(options, headers));
+            newHeaders.set("Content-Security-Policy", HeadersToString(options, headers));
             return new Response(r.clone().body, { ...r, headers: newHeaders });
         }
     };
