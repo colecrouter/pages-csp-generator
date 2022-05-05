@@ -1,10 +1,10 @@
 {
-  "name": "pages-csp-generator",
-  "version": "1.0.0",
-  "description": "",
+  "name": "@mexican-man/pages-csp-generator",
+  "version": "0.1.0",
+  "description": "The goal of this package is to provide a simple automated way to generate Content Security Policy compliant headers for your Cloudflare Pages site at runtime. The primary goal is to automate hashing and nonces, but it will also scan your page to include anything else included in stylesheets, etc.",
   "main": "index.js",
   "scripts": {
-    "build": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc --build"
   },
   "repository": {
     "type": "git",
@@ -15,5 +15,11 @@
   "dependencies": {
     "@cloudflare/workers-types": "^3.5.1",
     "typescript": "^4.6.3"
-  }
+  },
+  "keywords": [
+    "cloudflare",
+    "pages",
+    "csp",
+    "content-security-policy"
+  ]
 }

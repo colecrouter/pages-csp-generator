@@ -94,10 +94,10 @@ class InlineScriptHandler {
         // We'll let SrcHrefHandler handle it
         // BUT, if the 'script-src' directive has 'strict-dynamic', then do it anyway, cuz we need that to run inline scripts
         // If the method isn't 'nonce', we'll have to hash it here instead of in text() (if there's 'strict-dynamic')
-        if (!(element.getAttribute("src") || element.getAttribute("href")) && !(this.tagName == "script" && this.headers.get("script-src")?.has("'strict-dynamic'")) && this.options.InlineMethod != 'nonce') { return; }
+        if ((element.getAttribute("src") || element.getAttribute("href")) && !(this.headers.get("script-src")?.has("'strict-dynamic'"))) { return; }
 
         // We want element() to handle nonce generation, UNLESS we have a 'strict-dynamic' directive, in which case, we'll do it here
-        if (this.tagName == "script" && element.getAttribute("src") && this.options.InlineMethod !== "nonce") {
+        if (element.getAttribute("src") && this.options.InlineMethod !== "nonce") {
             // Get contents of src
             const url = new URL(element.getAttribute("src")!, this.request.url);
             const text = await fetch(url.toString());
@@ -173,11 +173,15 @@ export class SrcHrefHandler {
         }
 
         // If 'strict-dynamic' is in the script-src directive and we're using nonces, we'll add a nonce
-        if (element.tagName === 'script' && this.headers.get("script-src")?.has("'strict-dynamic'") && this.options.InlineMethod === "nonce") {
-            const ident = randomNonce();
-            element.setAttribute("nonce", ident);
-            const formattedIdent = `'nonce-${ident}'`;
-            addHeader(this.options, this.headers, 'script-src', formattedIdent);
+        if (element.tagName === 'script' && this.headers.get("script-src")?.has("'strict-dynamic'")) {
+            if (this.options.InlineMethod === "nonce") {
+                const ident = randomNonce();
+                element.setAttribute("nonce", ident);
+                const formattedIdent = `'nonce-${ident}'`;
+                addHeader(this.options, this.headers, 'script-src', formattedIdent);
+            } else {
+                return;
+            }
         }
 
         // URL to headers
