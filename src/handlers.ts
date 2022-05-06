@@ -1,7 +1,7 @@
-import { CSPOptions } from "./csp";
+import { CSPOptions } from "./index";
 import { scanCSS, scanCSSFile } from "./readers/css-scanner";
 import { scanManifestFile } from "./readers/manifest-scanner";
-import { absoluteURLRegex as AbsoluteURLRegex, AddHeader, CSPHeaders, HeadersToString, ParseCSP, RandomNonce, SHAHash, URLToHeader } from "./utils";
+import { AddHeader, CSPHeaders, HeadersToString, ParseCSP, RandomNonce, SHAHash, URLToHeader } from "./utils";
 
 export class InsertMetaTagHandler {
     readonly options: CSPOptions;

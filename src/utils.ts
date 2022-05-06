@@ -1,4 +1,5 @@
-import { CSPOptions, localhost } from "./csp";
+import { localhost } from "./index";
+import { CSPOptions } from "./index";
 
 export const absoluteURLRegex = /["'`]?((?:http|https):\/\/[a-z0-9]+(?:\.[a-z]*)?(?::[0-9]+)?[\/a-z0-9.\-@]*)[\?#]?.*?["'`]?/gi;
 export const base64Regex = /['"`]?(data:(?<mime>[\w\/\-\.]+);(?<encoding>\w+),(?<data>.*))['"`]?/gi;

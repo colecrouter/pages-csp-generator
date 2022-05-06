@@ -1,4 +1,5 @@
-import { CSPOptions, localhost } from "../csp";
+import { localhost } from "../index";
+import { CSPOptions } from "../index";
 import { CSPHeaders, URLToHeader } from "../utils";
 
 const urlRegex = /url\(["']?(.*\.[a-z]+)["']?\)/gi;

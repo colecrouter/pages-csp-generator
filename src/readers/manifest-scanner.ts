@@ -1,10 +1,6 @@
 import { WebAppManifest } from "web-app-manifest";
-import { CSPOptions, localhost } from "../csp";
-import { AddHeader, CSPHeaders, URLToHeader } from "../utils";
-
-const absoluteURLRegex = /["'`]?((?:http|https):\/\/[a-z0-9]+(?:\.[a-z]*)?(?::[0-9]+)?[\/a-z0-9.]*)[\?#]?.*?["'`]?/gi;
-const relativeURLRegex = /url\(["']?(?!.*\/\/)(.*\.[a-z]+)["']?\)/gi;
-const base64Regex = /url\(['"`]?(data:(?<mime>[\w\/\-\.+]+);?(?<encoding>\w+)?,(?<data>.*)(?![^'"`]))['"`]?\)/gi;
+import { CSPOptions } from "../index";
+import { CSPHeaders, URLToHeader } from "../utils";
 
 export const scanManifestFile = async (options: CSPOptions, headers: CSPHeaders, url: URL): Promise<void> => {
     // Get file contents
