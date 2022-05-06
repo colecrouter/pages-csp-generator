@@ -1,4 +1,3 @@
-/// <reference path="./types.d.ts" />
 import { ExistingMetaHandler, AnchorHandler, SrcHrefHandler, InsertMetaTagHandler, CSSHandler, JSHandler, InlineStyleFinder } from "./handlers";
 import { CSPOptions } from "./types";
 import { CSPDirective, HeadersToString, ParseCSP } from "./utils";
