@@ -1,14 +1,9 @@
+/// <reference path="./types.d.ts" />
 import { ExistingMetaHandler, AnchorHandler, SrcHrefHandler, InsertMetaTagHandler, CSSHandler, JSHandler, InlineStyleFinder } from "./handlers";
+import { CSPOptions } from "./types";
 import { CSPDirective, HeadersToString, ParseCSP } from "./utils";
 
 export let localhost: string;
-
-export interface CSPOptions {
-    InjectionMethod: 'meta-tags' | 'headers';
-    InlineMethod: 'sha256' | 'sha384' | 'sha512' | 'nonce';
-    UseSelf: boolean;
-    ScanExternal: boolean;
-}
 
 export const InjectCSP = (unformattedOptions: Partial<CSPOptions>): PagesFunction<{}> => {
     // Apply defaults to options

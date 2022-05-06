@@ -1,7 +1,7 @@
 {
   "include": [
     "src/**/*",
-    "src/index.d.ts"
+    "src/types.ts"
   ],
   "exclude": [
     "dist"

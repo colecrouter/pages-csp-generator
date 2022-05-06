@@ -1,0 +1,3 @@
+#local-stylesheet::before {
+    content: "Not "
+}

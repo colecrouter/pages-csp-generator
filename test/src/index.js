@@ -1,0 +1,1 @@
+document.getElementById("local-script").innerText = "Success";

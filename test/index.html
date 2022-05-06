@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: #222;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        main {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        code {
+            font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+            padding: 0.2em 0.4em;
+            margin: 0;
+            font-size: 85%;
+            background-color: rgba(110, 118, 129, 0.4);
+            border-radius: 6px;
+        }
+    </style>
+</head>
+
+<body onload="document.getElementById('onload-script').innerText = 'Success';">
+    <main>
+        <!-- style-src -->
+        <summary>
+            <h1><code>style-src</code></h1>
+        </summary>
+        <details>
+            <h4>External</h4>
+            <span id="external-stylesheet">Failed</span>
+            <link rel="stylesheet" id="external-stylesheet-stylesheet"
+                href="https://cdnjs.cloudflare.com/ajax/libs/grd/1.0.1/grd.css" onload="
+                document.getElementById('external-stylesheet').innerText = 'Not Failed';
+                ">
+            <h4>Local</h4>
+            <span id="local-stylesheet">Failed</span>
+            <link rel="stylesheet" href="./src/style.css">
+            <h4>Inline</h4>
+            <span id="inline-stylesheet">Failed</span>
+        </details>
+
+        <!-- style-src -->
+        <summary>
+            <h1><code>script-src</code></h1>
+        </summary>
+        <details>
+            <h4>External</h4>
+            <span id="external-script">Failed</span>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.9.4/min/tiny-slider.js" type="module"
+                id="external-script-script"></script>
+            <h4>Local</h4>
+            <span id="local-script">Failed</span>
+            <script src="src/index.js"></script>
+            <h4>Inline</h4>
+            <span id="inline-script">Failed</span>
+            <script>
+                document.getElementById('inline-script').innerText = 'Success';
+                document.getElementById('external-script-script').onload = () => {
+                    document.getElementById('external-script').innerText = 'Success';
+                };
+            </script>
+            <h4><code>onload</code></h4>
+            <span id="onload-script">Failed</span>
+        </details>
+
+        <!-- img-src -->
+        <summary>
+            <h1><code>img-src</code></h1>
+        </summary>
+        <details>
+            <h4>External</h4>
+            <img src="https://via.placeholder.com/300x200" alt="Placeholder">
+            <h4>Local</h4>
+            <img src="img/placeholder.png" alt="Placeholder">
+            <h4>Base64</h4>
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAADIBAMAAACg8cFmAAAAG1BMVEXMzMyWlpacnJyqqqrFxcWxsbGjo6O3t7e+vr6He3KoAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAD0UlEQVR4nO2az2/aShDHx78wRy9pIEe7pX05Ql4r9bhu8noGVEXvaJroJUeTSjmTVqr6Z3dmfwAtrpQn2aSqvh+JXewZeb7szs4ukokAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAODP5VNxpbnrnw3XcvmluG1wSj8OPuxYvXN3REqpEfcrpY4lPl/O9r2WSg3WW6tz7pC5uloqTbEaThUHLtWVOmnQ/upM5Rurd+6QYkx9NaFooOOiIpqO6d1wz6k8Yv2jjdU7d0dffvW8opKDPjzjcaj5lv7Za56zluHG6pw7JFXcPGS0yojCY3tZ7CXXciY/YGN1zh2SyIw95DStzHhEcinfRUbOliPjVdSSUNpbnXPXSCQZjwFFx1aluctTtbRTZfKbZTmrc+6YfzhllrWJ1BttZZUDHjE7n9/ITKK3OuduKRTPVLGWaaJQikOZmfuJmoU7sXnWvNU5d4uSUmQjaRvYLbJivBpt3bhAeKtz7loWp44JonQgigIna3W0U5wiVZG3OuduZdFXjtg0Wj21LeXxklfeQUeL11vWlFuc5EcblxXvBIfNLVOxG1YiJ9cmtRKznR9uJSb/kpkXKUWpq1ur3GvZhJ4ONbfe6pw7xOwhPC+8LUoJSLZVXgqXP+Ok9ou3OucOidzm07QnTk+KZzvi6ZB7oiyoqTtBnLgzwtqYYjVZuZxfVe6OtTrnDonVNQ9C3XTe6indc1VgWttbBztv0XRwVQyo6XTKp4e+ssGLV/8x+oCn0/dc5MfUdJaXxFpaicqgD3iWp8vipeau/9H+mfnq//mY1VeaMhB7Wd7qnQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPB/CNznN+NJZanB619YfpKV8VWglKIBUZiRfXv8vLiRlzSvKciJihZlZfHfj5dl2uGa7p2s+KX+ws3FQge3lC7blEXv6OwFhTrlL8nzCQWLTLro+VxkLV5Qr2bLjqxRRTdOVjSzTTIJ7qm3aldWcv1+FtUlfaLLizcUXJvu8kJ+fMCmfk5vdmVlp/3cyQq1beI8CNef20xEnsRQx3l/sqjf0pjHJdCmG1MpsthEN/yxb/BaWfe92skKfJMFaXXTpixOeTMI+WmVS2iJIl3mcyujz5G8gb0drfCO9keL/spbHS15rgxJdVvR2CqRbme0wgX9ICs5pv3covmsZVmSW7So72Z0r88ltnTb3KJ09KMsc2HanZVI7RY5eTyvRHrQpaa0OJWHS7ddiZTmDbLsRJ8rX7dalvUIevVh4z2Su6cW0Ehw+tQKAAB/DN8B6Jikju6t6uAAAAAASUVORK5CYII="
+                alt="Placeholder">
+            <h4>Blob</h4>
+            <img id="blob-img" alt="Placeholder">
+            <script>
+                const binary = atob('iVBORw0KGgoAAAANSUhEUgAAASwAAADIBAMAAACg8cFmAAAAG1BMVEXMzMyWlpacnJyqqqrFxcWxsbGjo6O3t7e+vr6He3KoAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAD0UlEQVR4nO2az2/aShDHx78wRy9pIEe7pX05Ql4r9bhu8noGVEXvaJroJUeTSjmTVqr6Z3dmfwAtrpQn2aSqvh+JXewZeb7szs4ukokAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAODP5VNxpbnrnw3XcvmluG1wSj8OPuxYvXN3REqpEfcrpY4lPl/O9r2WSg3WW6tz7pC5uloqTbEaThUHLtWVOmnQ/upM5Rurd+6QYkx9NaFooOOiIpqO6d1wz6k8Yv2jjdU7d0dffvW8opKDPjzjcaj5lv7Za56zluHG6pw7JFXcPGS0yojCY3tZ7CXXciY/YGN1zh2SyIw95DStzHhEcinfRUbOliPjVdSSUNpbnXPXSCQZjwFFx1aluctTtbRTZfKbZTmrc+6YfzhllrWJ1BttZZUDHjE7n9/ITKK3OuduKRTPVLGWaaJQikOZmfuJmoU7sXnWvNU5d4uSUmQjaRvYLbJivBpt3bhAeKtz7loWp44JonQgigIna3W0U5wiVZG3OuduZdFXjtg0Wj21LeXxklfeQUeL11vWlFuc5EcblxXvBIfNLVOxG1YiJ9cmtRKznR9uJSb/kpkXKUWpq1ur3GvZhJ4ONbfe6pw7xOwhPC+8LUoJSLZVXgqXP+Ok9ou3OucOidzm07QnTk+KZzvi6ZB7oiyoqTtBnLgzwtqYYjVZuZxfVe6OtTrnDonVNQ9C3XTe6indc1VgWttbBztv0XRwVQyo6XTKp4e+ssGLV/8x+oCn0/dc5MfUdJaXxFpaicqgD3iWp8vipeau/9H+mfnq//mY1VeaMhB7Wd7qnQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPB/CNznN+NJZanB619YfpKV8VWglKIBUZiRfXv8vLiRlzSvKciJihZlZfHfj5dl2uGa7p2s+KX+ws3FQge3lC7blEXv6OwFhTrlL8nzCQWLTLro+VxkLV5Qr2bLjqxRRTdOVjSzTTIJ7qm3aldWcv1+FtUlfaLLizcUXJvu8kJ+fMCmfk5vdmVlp/3cyQq1beI8CNef20xEnsRQx3l/sqjf0pjHJdCmG1MpsthEN/yxb/BaWfe92skKfJMFaXXTpixOeTMI+WmVS2iJIl3mcyujz5G8gb0drfCO9keL/spbHS15rgxJdVvR2CqRbme0wgX9ICs5pv3covmsZVmSW7So72Z0r88ltnTb3KJ09KMsc2HanZVI7RY5eTyvRHrQpaa0OJWHS7ddiZTmDbLsRJ8rX7dalvUIevVh4z2Su6cW0Ehw+tQKAAB/DN8B6Jikju6t6uAAAAAASUVORK5CYII=');
+                const blob = new Blob([ binary ], { type: 'image/png' });
+                const blobUrl = URL.createObjectURL(blob);
+                document.getElementById('blob-img').src = blobUrl;
+            </script>
+        </details>
+
+        <!-- connect-src -->
+        <summary>
+            <h1><code>connect-src</code></h1>
+        </summary>
+        <details>
+            <h4>External</h4>
+            <span id="external-connect">Failed</span>
+            <script>fetch('https://ip.seeip.org/jsonip?').then(() => { document.getElementById('external-connect').innerText = 'Success'; })</script>
+            <h4>Local</h4>
+            <span id="local-connect">Failed</span>
+            <script>fetch('./a').then(() => { document.getElementById('external-connect').innerText = 'Success'; })</script>
+        </details>
+
+        <!-- font-src -->
+        <summary>
+            <h1><code>font-src</code></h1>
+        </summary>
+        <details>
+            <h4>External</h4>
+            <span id="external-font">Failed</span>
+            <style>
+                @import url('http://fonts.cdnfonts.com/css/kallio');
+            </style>
+            <h4>Local</h4>
+            <span id="local-font">Failed</span>
+            <style>
+                @import url('font/comicsans.ttf');
+
+                span.asd {
+                    font-family: Kallio;
+                }
+            </style>
+            <span class="asd"></span>
+            <script>
+                document.fonts.ready.then((value) => {
+                    if (document.fonts.check('1em Kallio')) { document.getElementById('external-font').innerText = 'Success'; }
+                    if (document.fonts.check('1em Comic Sans MS')) { document.getElementById('local-font').innerText = 'Success'; }
+                });
+            </script>
+        </details>
+
+        <!-- object-src -->
+        <summary>
+            <h1><code>object-src</code></h1>
+        </summary>
+        <details>
+            <h4>External</h4>
+            <object data="https://via.placeholder.com/300x200" alt="Placeholder">
+            </object>
+            <h4>Local</h4>
+            <object data="img/placeholder.png" alt="Placeholder">
+            </object>
+            <h4>Base64</h4>
+            <object
+                data="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAADIBAMAAACg8cFmAAAAG1BMVEXMzMyWlpacnJyqqqrFxcWxsbGjo6O3t7e+vr6He3KoAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAD0UlEQVR4nO2az2/aShDHx78wRy9pIEe7pX05Ql4r9bhu8noGVEXvaJroJUeTSjmTVqr6Z3dmfwAtrpQn2aSqvh+JXewZeb7szs4ukokAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAODP5VNxpbnrnw3XcvmluG1wSj8OPuxYvXN3REqpEfcrpY4lPl/O9r2WSg3WW6tz7pC5uloqTbEaThUHLtWVOmnQ/upM5Rurd+6QYkx9NaFooOOiIpqO6d1wz6k8Yv2jjdU7d0dffvW8opKDPjzjcaj5lv7Za56zluHG6pw7JFXcPGS0yojCY3tZ7CXXciY/YGN1zh2SyIw95DStzHhEcinfRUbOliPjVdSSUNpbnXPXSCQZjwFFx1aluctTtbRTZfKbZTmrc+6YfzhllrWJ1BttZZUDHjE7n9/ITKK3OuduKRTPVLGWaaJQikOZmfuJmoU7sXnWvNU5d4uSUmQjaRvYLbJivBpt3bhAeKtz7loWp44JonQgigIna3W0U5wiVZG3OuduZdFXjtg0Wj21LeXxklfeQUeL11vWlFuc5EcblxXvBIfNLVOxG1YiJ9cmtRKznR9uJSb/kpkXKUWpq1ur3GvZhJ4ONbfe6pw7xOwhPC+8LUoJSLZVXgqXP+Ok9ou3OucOidzm07QnTk+KZzvi6ZB7oiyoqTtBnLgzwtqYYjVZuZxfVe6OtTrnDonVNQ9C3XTe6indc1VgWttbBztv0XRwVQyo6XTKp4e+ssGLV/8x+oCn0/dc5MfUdJaXxFpaicqgD3iWp8vipeau/9H+mfnq//mY1VeaMhB7Wd7qnQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPB/CNznN+NJZanB619YfpKV8VWglKIBUZiRfXv8vLiRlzSvKciJihZlZfHfj5dl2uGa7p2s+KX+ws3FQge3lC7blEXv6OwFhTrlL8nzCQWLTLro+VxkLV5Qr2bLjqxRRTdOVjSzTTIJ7qm3aldWcv1+FtUlfaLLizcUXJvu8kJ+fMCmfk5vdmVlp/3cyQq1beI8CNef20xEnsRQx3l/sqjf0pjHJdCmG1MpsthEN/yxb/BaWfe92skKfJMFaXXTpixOeTMI+WmVS2iJIl3mcyujz5G8gb0drfCO9keL/spbHS15rgxJdVvR2CqRbme0wgX9ICs5pv3covmsZVmSW7So72Z0r88ltnTb3KJ09KMsc2HanZVI7RY5eTyvRHrQpaa0OJWHS7ddiZTmDbLsRJ8rX7dalvUIevVh4z2Su6cW0Ehw+tQKAAB/DN8B6Jikju6t6uAAAAAASUVORK5CYII="
+                alt="Placeholder">
+            </object>
+            <h4>Blob</h4>
+            <object id="blob-object" alt="Placeholder">
+            </object>
+            <script>
+                document.getElementById('blob-object').setAttribute('data', blobUrl);
+            </script>
+        </details>
+
+        <!-- media-src -->
+        <summary>
+            <h1><code>media-src</code></h1>
+        </summary>
+        <details>
+            <h4>External</h4>
+            <object data="https://via.placeholder.com/300x200" alt="Placeholder">
+            </object>
+            <h4>Local</h4>
+            <object data="img/placeholder.png" alt="Placeholder">
+            </object>
+            <h4>Base64</h4>
+            <object
+                data="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAADIBAMAAACg8cFmAAAAG1BMVEXMzMyWlpacnJyqqqrFxcWxsbGjo6O3t7e+vr6He3KoAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAD0UlEQVR4nO2az2/aShDHx78wRy9pIEe7pX05Ql4r9bhu8noGVEXvaJroJUeTSjmTVqr6Z3dmfwAtrpQn2aSqvh+JXewZeb7szs4ukokAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAODP5VNxpbnrnw3XcvmluG1wSj8OPuxYvXN3REqpEfcrpY4lPl/O9r2WSg3WW6tz7pC5uloqTbEaThUHLtWVOmnQ/upM5Rurd+6QYkx9NaFooOOiIpqO6d1wz6k8Yv2jjdU7d0dffvW8opKDPjzjcaj5lv7Za56zluHG6pw7JFXcPGS0yojCY3tZ7CXXciY/YGN1zh2SyIw95DStzHhEcinfRUbOliPjVdSSUNpbnXPXSCQZjwFFx1aluctTtbRTZfKbZTmrc+6YfzhllrWJ1BttZZUDHjE7n9/ITKK3OuduKRTPVLGWaaJQikOZmfuJmoU7sXnWvNU5d4uSUmQjaRvYLbJivBpt3bhAeKtz7loWp44JonQgigIna3W0U5wiVZG3OuduZdFXjtg0Wj21LeXxklfeQUeL11vWlFuc5EcblxXvBIfNLVOxG1YiJ9cmtRKznR9uJSb/kpkXKUWpq1ur3GvZhJ4ONbfe6pw7xOwhPC+8LUoJSLZVXgqXP+Ok9ou3OucOidzm07QnTk+KZzvi6ZB7oiyoqTtBnLgzwtqYYjVZuZxfVe6OtTrnDonVNQ9C3XTe6indc1VgWttbBztv0XRwVQyo6XTKp4e+ssGLV/8x+oCn0/dc5MfUdJaXxFpaicqgD3iWp8vipeau/9H+mfnq//mY1VeaMhB7Wd7qnQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPB/CNznN+NJZanB619YfpKV8VWglKIBUZiRfXv8vLiRlzSvKciJihZlZfHfj5dl2uGa7p2s+KX+ws3FQge3lC7blEXv6OwFhTrlL8nzCQWLTLro+VxkLV5Qr2bLjqxRRTdOVjSzTTIJ7qm3aldWcv1+FtUlfaLLizcUXJvu8kJ+fMCmfk5vdmVlp/3cyQq1beI8CNef20xEnsRQx3l/sqjf0pjHJdCmG1MpsthEN/yxb/BaWfe92skKfJMFaXXTpixOeTMI+WmVS2iJIl3mcyujz5G8gb0drfCO9keL/spbHS15rgxJdVvR2CqRbme0wgX9ICs5pv3covmsZVmSW7So72Z0r88ltnTb3KJ09KMsc2HanZVI7RY5eTyvRHrQpaa0OJWHS7ddiZTmDbLsRJ8rX7dalvUIevVh4z2Su6cW0Ehw+tQKAAB/DN8B6Jikju6t6uAAAAAASUVORK5CYII="
+                alt="Placeholder">
+            </object>
+            <h4>Blob</h4>
+            <object id="blob-object" alt="Placeholder">
+            </object>
+            <script>
+                document.getElementById('blob-object').setAttribute('data', blobUrl);
+            </script>
+        </details>
+    </main>
+</body>
+
+</html>
