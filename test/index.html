@@ -122,12 +122,15 @@
             <h4>External</h4>
             <span id="external-font">Failed</span>
             <style>
-                @import url('http://fonts.cdnfonts.com/css/kallio');
+                @import url('https://fonts.cdnfonts.com/css/kallio');
             </style>
             <h4>Local</h4>
             <span id="local-font">Failed</span>
             <style>
-                @import url('font/comicsans.ttf');
+                @font-face {
+                    font-family: 'Comic Sans MS';
+                    src: url(font/comicsans.ttf);
+                }
 
                 span.asd {
                     font-family: Kallio;
