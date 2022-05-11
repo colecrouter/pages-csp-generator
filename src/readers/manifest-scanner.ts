@@ -1,5 +1,5 @@
 import { WebAppManifest } from "web-app-manifest";
-import { CSPOptions } from "../index";
+import { CSPOptions } from "../types";
 import { CSPHeaders, URLToHeader } from "../utils";
 
 export const scanManifestFile = async (options: CSPOptions, headers: CSPHeaders, url: URL): Promise<void> => {

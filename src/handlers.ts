@@ -1,4 +1,4 @@
-import { CSPOptions } from "./index";
+import { CSPOptions } from "./types";
 import { scanCSS, scanCSSFile } from "./readers/css-scanner";
 import { scanManifestFile } from "./readers/manifest-scanner";
 import { AddHeader, CSPHeaders, HeadersToString, ParseCSP, RandomNonce, SHAHash, URLToHeader } from "./utils";
