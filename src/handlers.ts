@@ -31,7 +31,7 @@ export class ExistingMetaHandler {
 
     element(element: Element) {
         if (element.tagName !== "meta") return; { }
-        if (element.getAttribute("http-equiv") !== "Content-Security-Policy") { return; }
+        if (element.getAttribute("http-equiv")?.toLowerCase() !== "content-security-policy") { return; }
 
         // Parse existing CSP headers from meta tag
         ParseCSP(this.options, this.headers, element.getAttribute("content") || "");

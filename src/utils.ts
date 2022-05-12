@@ -153,7 +153,7 @@ export const HeadersToString = (options: CSPOptions, headers: CSPHeaders): strin
     }
 
     // For some reason, # keeps getting added to all the urls in production, so remove them
-    csp = csp.replace(/#/g, "");
+    // csp = csp.replace(/#/g, "");
 
     return csp;
 };
