@@ -2,6 +2,7 @@ import { CSPOptions } from "./types";
 import { scanCSS, scanCSSFile } from "./readers/css-scanner";
 import { scanManifestFile } from "./readers/manifest-scanner";
 import { AddHeader, CSPHeaders, HeadersToString, ParseCSP, RandomNonce, SHAHash, URLToHeader } from "./utils";
+import { scanJS } from "./readers/js-scanner";
 
 export class InsertMetaTagHandler {
     readonly options: CSPOptions;
@@ -58,7 +59,7 @@ class InlineScriptHandler {
     // Scan text elements for urls
     async text(text: Text) {
         // If we're using 'strict-dynamic' on a script, skip because it'll be handled in the element() handler
-        if (this.tagName === 'script' && this.headers.get("script-src")?.has("'strict-dynamic'")) { return; }
+        if (this.tagName === 'script' && this.headers.get('script-src')?.has("'strict-dynamic'")) { return; }
 
         // Accumulate buffer
         this.buffer += text.text;
@@ -66,8 +67,11 @@ class InlineScriptHandler {
 
         // Find URLs
         const url = new URL(this.request.url);
-        if (this.tagName === "style") { await scanCSS(this.options, this.headers, url, this.buffer); }
-        if (this.tagName == "style" && this.headers.get("style-src")?.has("'unsafe-inline'")) { return; }; // Inline style attribute somewhere in page, don't add nonce
+        if (this.tagName === 'style') { await scanCSS(this.options, this.headers, url, this.buffer); }
+        if (this.tagName === 'style' && this.headers.get('style-src')?.has("'unsafe-inline'")) { return; }; // Inline style attribute somewhere in page, don't add nonce
+        if (this.tagName === 'script') { await scanJS(this.options, this.headers, url, this.buffer); }
+        if (this.tagName === 'script' && this.headers.get('script-src')?.has("'unsafe-inline'")) { return; }; // Inline style attribute somewhere in page, don't add nonce
+
         if (this.options.InlineMethod === "nonce") { return; } // We want element() to handle nonce generation
 
         // Calculate hash
@@ -144,21 +148,21 @@ export class SrcHrefHandler {
     }
 
     async element(element: Element) {
-        if (!element.getAttribute("src") && !element.getAttribute("href")) { return; }
+        if (!(element.getAttribute("src") || element.getAttribute("href"))) { return; }
         const value = element.getAttribute("src") || element.getAttribute("href")!;
 
         // Check for base64 and blobs
-        if (value.startsWith("data:") && element.tagName === "img") {
-            AddHeader(this.options, this.headers, 'img-src', 'data:');
-            return;
-        } else if (value.startsWith("blob:")) {
-            if (element.tagName === "img") {
-                AddHeader(this.options, this.headers, 'img-src', 'blob:');
-            } else if (element.tagName === "script") {
-                AddHeader(this.options, this.headers, 'script-src', 'blob:');
-            }
-            return;
-        }
+        // if (value.startsWith("data:") && element.tagName === "img") {
+        //     AddHeader(this.options, this.headers, 'img-src', 'data:');
+        //     return;
+        // } else if (value.startsWith("blob:")) {
+        //     if (element.tagName === "img") {
+        //         AddHeader(this.options, this.headers, 'img-src', 'blob:');
+        //     } else if (element.tagName === "script") {
+        //         AddHeader(this.options, this.headers, 'script-src', 'blob:');
+        //     }
+        //     return;
+        // }
 
         // If 'strict-dynamic' is in the script-src directive and we're using nonces, we'll add a nonce
         if (element.tagName === 'script' && this.headers.get("script-src")?.has("'strict-dynamic'")) {
@@ -176,11 +180,9 @@ export class SrcHrefHandler {
         let url: URL;
 
         try { url = new URL(value, this.request.url); } catch (e) { return; }
-        url.hash = ''; // Remove hash
-        url.search = ''; // Remove search
         switch (element.tagName) {
             case 'script':
-                await URLToHeader(this.options, this.headers, url);
+                AddHeader(this.options, this.headers, 'script-src', url);
                 break;
             case 'link':
                 switch (element.getAttribute("rel") || "") {

@@ -21,7 +21,7 @@ export const scanCSS = async (options: CSPOptions, headers: CSPHeaders, url: URL
 
     // Search for relative URLs
     for (const match of text.matchAll(urlRegex)) {
-        promises.push(URLToHeader(options, headers, new URL(match[1], url.toString()), 'img-src'));
+        promises.push(URLToHeader(options, headers, new URL(match[1], url.toString())));
     }
 
     await Promise.all(promises);

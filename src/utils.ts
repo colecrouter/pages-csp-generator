@@ -2,7 +2,6 @@ import { localhost } from "./index";
 import { CSPOptions } from "./types";
 
 export const absoluteURLRegex = /["'`]?((?:http|https):\/\/[a-z0-9]+(?:\.[a-z]*)?(?::[0-9]+)?[\/a-z0-9.\-@]*)[\?#]?.*?["'`]?/gi;
-export const base64Regex = /['"`]?(data:(?<mime>[\w\/\-\.]+);(?<encoding>\w+),(?<data>.*))['"`]?/gi;
 
 const CSPDirectives: CSPDirective[] = [
     "default-src",
@@ -96,8 +95,8 @@ export const AddHeader = (options: CSPOptions, headers: CSPHeaders, key: CSPDire
     }
 
     // Case for 'data:' and 'blob:'
-    if (value.origin === null) {
-        values.add(value.href);
+    if (value.origin == null || value.origin === 'null') {
+        values.add(value.protocol);
         return;
     }
 
@@ -159,22 +158,19 @@ export const HeadersToString = (options: CSPOptions, headers: CSPHeaders): strin
 };
 
 export const URLToHeader = async (options: CSPOptions, headers: CSPHeaders, url: URL, directive?: CSPDirective) => {
-
     // Get directive
     directive = directive || getDirectiveFromExtension(options, url) || await getDirectiveFromFetch(options, url);
     if (!directive) { return; }
-
 
     // If pathname has ${ in it, we'll assume it's a template and return the hostname.
     if (url.pathname.includes("$%7B")) { return AddHeader(options, headers, directive, url); }
 
     // Absolute URL
-    url.hash = "";
-    url.search = "";
-    if (url.origin !== localhost) { return AddHeader(options, headers, directive, url); }
+    // if (url.origin !== localhost) { return AddHeader(options, headers, directive, url); }
+    return AddHeader(options, headers, directive, url);
 
     // Relative URL
-    return AddHeader(options, headers, directive, options.UseSelf ? "'self'" : url);
+    // return AddHeader(options, headers, directive, options.UseSelf ? "'self'" : url);
 };
 
 // Not currently used
@@ -220,6 +216,15 @@ const getDirectiveFromFetch = async (options: CSPOptions, url: URL): Promise<CSP
     const mime = res.headers.get("Content-Type");
     if (res.status !== 200 || !mime) { fetchDirectiveCache.set(url.toString(), null); return; } // Cache, but set as nothing
 
+    const directive = getDirectiveFromMIME(options, mime);
+
+    // Cache
+    if (doCache && directive) { fetchDirectiveCache.set(url.toString(), directive); };
+
+    return directive;
+};
+
+export const getDirectiveFromMIME = (options: CSPOptions, mime: string): CSPDirective | undefined => {
     const category = mime.split("/").shift();
     let directive: CSPDirective;
     switch (category) {
@@ -245,9 +250,6 @@ const getDirectiveFromFetch = async (options: CSPOptions, url: URL): Promise<CSP
         default:
             return undefined;
     }
-
-    // Cache
-    if (doCache) { fetchDirectiveCache.set(url.toString(), directive); };
 
     return directive;
 };
